@@ -25,7 +25,7 @@ export function getNeighboringValidSeats(seat, allSeats) {
 			const nRow = seat.row + dRow;
 			const nCol = seat.col + dCol;
 
-			if (nRow >= 0 && nRow < 7 && nCol >= 0 && nCol < 7) {
+			if (nRow >= 0 && nRow < allSeats.length && nCol >= 0 && nCol < allSeats[0].length) {
 				const neighborSeat = allSeats[nRow][nCol];
 				if (neighborSeat.isValid) {
 					neighbors.push(neighborSeat);

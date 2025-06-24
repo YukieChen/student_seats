@@ -25,23 +25,57 @@ export async function startAssignment() {
 	});
 	allStudents.sort((a, b) => studentConditionCounts.get(b) - studentConditionCounts.get(a));
 
+	// 建立學生到相關條件的映射
+	const studentToConditionsMap = new Map();
+	allStudents.forEach(s => studentToConditionsMap.set(s, []));
+	appState.conditions.forEach(condition => {
+		condition.students.flat().forEach(s => {
+			if (studentToConditionsMap.has(s)) {
+				studentToConditionsMap.get(s).push(condition);
+			}
+		});
+	});
+
 	let assignedStudentsMap = new Map(); // { studentId: {row, col} }
 	let unassignedStudents = []; // 最終無法安排的學生
 
+	// 建立學生到是否有指定座條件的映射
+	const studentHasAssignGroupCondition = new Map();
+	allStudents.forEach(s => studentHasAssignGroupCondition.set(s, false));
+	appState.conditions.forEach(condition => {
+		if (condition.type === 'assign_group') {
+			condition.students.flat().forEach(s => {
+				if (studentHasAssignGroupCondition.has(s[0])) { // assign_group 條件的 students 是一個包含單個學生 ID 的陣列
+					studentHasAssignGroupCondition.set(s[0], true);
+				}
+			});
+		}
+	});
+
 	// 調用回溯演算法
+	const startTime = Date.now();
+	const TIMEOUT_MS = 30000; // 30 秒超時
+	console.log(`[DEBUG] 開始座位安排演算法，超時設定為 ${TIMEOUT_MS / 1000} 秒。`);
 	const success = await solveAssignment(
-		0, // studentIndex
 		allStudents,
 		assignedStudentsMap,
 		availableValidSeats,
-		unassignedStudents
+		unassignedStudents,
+		studentToConditionsMap,
+		studentHasAssignGroupCondition,
+		startTime,
+		TIMEOUT_MS
 	);
 
 	// 更新 UI 顯示結果
 	if (success) {
 		alert('座位安排完成！所有學生都已成功安排。');
 	} else {
-		alert('座位安排完成！部分學生無法安排，請查看未安排學生清單。');
+		if (Date.now() - startTime >= TIMEOUT_MS) {
+			alert('座位安排超時！部分學生無法安排，請查看未安排學生清單。');
+		} else {
+			alert('座位安排完成！部分學生無法安排，請查看未安排學生清單。');
+		}
 	}
 
 	// 將 assignedStudentsMap 的結果更新回 appState.seats 陣列
@@ -62,26 +96,86 @@ export async function startAssignment() {
 }
 
 // 回溯演算法核心
-async function solveAssignment(studentIndex, studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult) {
+async function solveAssignment(studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, startTime, TIMEOUT_MS) {
+	// 超時檢查
+	if (Date.now() - startTime > TIMEOUT_MS) {
+		console.warn(`[DEBUG] 超時觸發！停止搜尋。`);
+		return false; // 超時，停止搜尋
+	}
+
 	// 基本情況：所有學生都已嘗試分配
-	if (studentIndex === studentsToAssign.length) {
+	if (studentsToAssign.length === 0) {
 		return true; // 所有學生都已成功分配
 	}
 
-	const currentStudent = studentsToAssign[studentIndex];
-	let foundSpotForCurrentStudent = false;
+	// 學生排序啟發式：優先處理有相鄰條件且其相鄰學生已放置的學生
+	// 這裡我們直接操作 studentsToAssign，因為它現在是動態變化的
+	studentsToAssign.sort((sA, sB) => {
+		let scoreA = 0;
+		let scoreB = 0;
 
-	// 座位排序啟發式：優先考慮能滿足最多條件的座位 (這裡簡化為隨機，實際應更複雜)
-	// 為了簡化，這裡先隨機打亂可用座位，實際應根據約束進行評分
-	const shuffledAvailableSeats = [...availableSeats].sort(() => Math.random() - 0.5);
+		const conditionsA = studentToConditionsMap.get(sA) || [];
+		for (const condition of conditionsA) {
+			if (condition.type === 'adjacent') {
+				const [s1, s2] = condition.students[0];
+				const otherStudent = (s1 === sA) ? s2 : s1;
+				if (currentAssignment.has(otherStudent)) {
+					scoreA += 10000; // 給予極高的優先級
+				}
+			}
+		}
 
-	for (const seat of shuffledAvailableSeats) {
+		const conditionsB = studentToConditionsMap.get(sB) || [];
+		for (const condition of conditionsB) {
+			if (condition.type === 'adjacent') {
+				const [s1, s2] = condition.students[0];
+				const otherStudent = (s1 === sB) ? s2 : s1;
+				if (currentAssignment.has(otherStudent)) {
+					scoreB += 10000; // 給予極高的優先級
+				}
+			}
+		}
+		return scoreB - scoreA;
+	});
+
+	const currentStudent = studentsToAssign[0]; // 選擇排序後的第一個學生
+	console.log(`[DEBUG] 嘗試為學生 ${currentStudent} (剩餘學生數: ${studentsToAssign.length}) 尋找座位...`);
+
+	// 座位排序啟發式：優先考慮能滿足最多條件的座位
+	// 這裡根據每個座位滿足當前學生相關條件的能力進行評分
+	const scoredAvailableSeats = availableSeats
+		.filter(seat => seat.studentId === undefined) // 只考慮未被佔用的座位
+		.map(seat => {
+			let score = 0;
+			const tempAssignment = new Map(currentAssignment);
+			tempAssignment.set(currentStudent, seat);
+
+			const relevantConditions = studentToConditionsMap.get(currentStudent) || [];
+			for (const condition of relevantConditions) {
+				if (condition.type === 'adjacent') {
+					const [s1, s2] = condition.students[0]; // 假設 adjacent 條件只涉及一對學生
+					const otherStudent = (s1 === currentStudent) ? s2 : s1;
+					const otherStudentSeat = currentAssignment.get(otherStudent);
+
+					if (otherStudentSeat && areSeatsAdjacentAllDirections(seat, otherStudentSeat)) {
+						score += 1000; // 給予極高的分數，優先考慮相鄰座位
+						console.log(`[DEBUG] 學生 ${currentStudent} 考慮座位 (${seat.row}, ${seat.col}) 與已放置學生 ${otherStudent} (${otherStudentSeat.row}, ${otherStudentSeat.col}) 相鄰，給予高分。`);
+					}
+				}
+
+				if (checkCondition(condition, tempAssignment)) {
+					score++;
+				}
+			}
+			return { seat, score };
+		})
+		.sort((a, b) => b.score - a.score); // 分數高的座位優先
+
+	for (const { seat, score } of scoredAvailableSeats) {
 		// 每次迭代都讓出控制權，避免阻塞 UI
 		await new Promise(resolve => setTimeout(resolve, 0));
-		// 檢查座位是否已被佔用
-		if (seat.studentId !== undefined) {
-			continue;
-		}
+
+		console.log(`[DEBUG] 嘗試將學生 ${currentStudent} 放置在座位 (${seat.row}, ${seat.col})，啟發式分數: ${score}`);
 
 		// 嘗試分配學生到當前座位
 		seat.studentId = currentStudent;
@@ -89,62 +183,116 @@ async function solveAssignment(studentIndex, studentsToAssign, currentAssignment
 
 		// 檢查所有相關條件是否滿足
 		let allConditionsMet = true;
-		for (const condition of appState.conditions) {
-			// 判斷條件是否與當前學生相關
-			const studentsInCondition = condition.students.flat();
-			if (!studentsInCondition.includes(currentStudent)) {
-				continue; // 如果條件不包含當前學生，則跳過
-			}
-
-			let conditionSatisfied = false;
-			switch (condition.type) {
-				case 'adjacent':
-					conditionSatisfied = condition.students.every(pair =>
-						checkAdjacent(pair[0], pair[1], currentAssignment)
-					);
-					break;
-				case 'group_area':
-					conditionSatisfied = checkGroupArea(condition.students[0], currentAssignment);
-					break;
-				case 'not_adjacent':
-					conditionSatisfied = condition.students.every(pair =>
-						checkNotAdjacent(pair[0], pair[1], currentAssignment)
-					);
-					break;
-				case 'assign_group':
-					conditionSatisfied = condition.students.every(s =>
-						checkAssignGroup(s[0], condition.group, currentAssignment)
-					);
-					break;
-				case 'adjacent_and_group':
-					conditionSatisfied = condition.students.every(pair =>
-						checkAdjacentAndGroup(pair[0], pair[1], condition.group, currentAssignment)
-					);
-					break;
-				default:
-					conditionSatisfied = true; // 未知條件類型，暫時視為滿足
-			}
-			if (!conditionSatisfied) {
+		const relevantConditions = studentToConditionsMap.get(currentStudent) || [];
+		for (const condition of relevantConditions) {
+			const conditionMet = checkCondition(condition, currentAssignment);
+			console.log(`[DEBUG] 檢查學生 ${currentStudent} 的條件類型: ${condition.type}, 條件內容: ${JSON.stringify(condition.students)} - 結果: ${conditionMet ? '滿足' : '不滿足'}`);
+			if (!conditionMet) {
 				allConditionsMet = false;
 				break;
 			}
 		}
 
 		if (allConditionsMet) {
-			// 如果當前分配滿足所有條件，則遞迴處理下一個學生
-			if (await solveAssignment(studentIndex + 1, studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult)) {
+			console.log(`[DEBUG] 學生 ${currentStudent} 在座位 (${seat.row}, ${seat.col}) 滿足所有條件。遞迴處理下一個學生...`);
+			// 從待分配學生列表中移除當前學生
+			const nextStudentsToAssign = studentsToAssign.filter(s => s !== currentStudent);
+			if (await solveAssignment(nextStudentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, startTime, TIMEOUT_MS)) {
 				return true; // 找到一個完整解
 			}
 		}
 
 		// 回溯：如果當前分配不成功，則撤銷分配
+		console.log(`[DEBUG] 回溯：學生 ${currentStudent} 在座位 (${seat.row}, ${seat.col}) 失敗或後續遞迴失敗。撤銷分配。`);
 		seat.studentId = undefined;
 		currentAssignment.delete(currentStudent);
 	}
 
-	// 如果所有座位都嘗試過且都失敗，則將當前學生標記為無法安排
-	unassignedStudentsResult.push(currentStudent);
-	return false; // 無法為當前學生找到合適的座位
+	// 如果所有座位都嘗試過且都失敗，則嘗試回溯並重新安排
+	console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位。嘗試回溯並重新安排...`);
+
+	// 收集所有已分配且沒有 assign_group 約束的學生，按分配順序倒序排列
+	const candidatesToRearrange = Array.from(currentAssignment.keys())
+		.reverse() // 從最近分配的學生開始考慮
+		.filter(studentId => !studentHasAssignGroupCondition.get(studentId));
+
+	for (const studentToRearrange of candidatesToRearrange) {
+		// 超時檢查
+		if (Date.now() - startTime > TIMEOUT_MS) {
+			console.warn(`[DEBUG] 超時觸發！停止搜尋。`);
+			return false;
+		}
+
+		const originalSeat = currentAssignment.get(studentToRearrange);
+		if (!originalSeat) continue; // 應該不會發生，但以防萬一
+
+		// 撤銷該學生的分配
+		originalSeat.studentId = undefined;
+		currentAssignment.delete(studentToRearrange);
+		console.log(`[DEBUG] 回溯：為了解決學生 ${currentStudent} 的放置問題，暫時撤銷學生 ${studentToRearrange} (原座位: R${originalSeat.row}C${originalSeat.col}) 的分配。`);
+
+		// 將被撤銷的學生重新加入待分配列表的開頭，以確保它在後續被重新處理
+		const studentsAfterRearrange = [studentToRearrange, ...studentsToAssign];
+
+		// 嘗試為當前學生 (currentStudent) 找到座位
+		// 注意：這裡我們將 currentStudent 放在 studentsToAssign 的最前面，確保它優先被處理
+		const nextStudentsToAssign = [currentStudent, ...studentsToAssign.filter(s => s !== currentStudent && s !== studentToRearrange)];
+
+		// 遞迴調用 solveAssignment，嘗試解決當前學生和被撤銷學生的問題
+		if (await solveAssignment(nextStudentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, startTime, TIMEOUT_MS)) {
+			return true; // 找到一個完整解
+		}
+
+		// 如果遞迴調用失敗，回溯：恢復被撤銷學生的原始分配
+		originalSeat.studentId = studentToRearrange;
+		currentAssignment.set(studentToRearrange, originalSeat);
+		console.log(`[DEBUG] 回溯失敗：恢復學生 ${studentToRearrange} 到原座位 (R${originalSeat.row}C${originalSeat.col})。`);
+	}
+
+	// 如果所有回溯和重新安排的嘗試都失敗，且當前學生沒有指定座約束，則將其標記為未安排
+	const hasAssignGroupCondition = studentHasAssignGroupCondition.get(currentStudent);
+	if (!hasAssignGroupCondition) {
+		console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位，且無法透過重新安排其他學生解決。將其標記為未安排。`);
+		unassignedStudentsResult.push(currentStudent);
+		// 從待分配學生列表中移除當前學生
+		const nextStudentsToAssign = studentsToAssign.filter(s => s !== currentStudent);
+		// 遞迴調用，處理剩餘學生 (這裡的遞迴是為了確保即使當前學生被跳過，後續學生也能被處理)
+		if (await solveAssignment(nextStudentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, startTime, TIMEOUT_MS)) {
+			return true;
+		}
+		// 如果跳過當前學生後仍然沒有找到解，則將其從 unassignedStudentsResult 中移除，並回溯
+		unassignedStudentsResult.pop();
+	} else {
+		console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位，且該學生有指定座約束，無法跳過。`);
+	}
+
+	return false; // 無法為當前學生找到合適的座位，或回溯後仍無解
+}
+
+// 輔助函數：檢查單一條件是否滿足
+function checkCondition(condition, assignedStudentsMap) {
+	switch (condition.type) {
+		case 'adjacent':
+			return condition.students.every(pair =>
+				checkAdjacent(pair[0], pair[1], assignedStudentsMap)
+			);
+		case 'group_area':
+			return checkGroupArea(condition.students[0], assignedStudentsMap);
+		case 'not_adjacent':
+			return condition.students.every(pair =>
+				checkNotAdjacent(pair[0], pair[1], assignedStudentsMap)
+			);
+		case 'assign_group':
+			return condition.students.every(s =>
+				checkAssignGroup(s[0], condition.group, assignedStudentsMap)
+			);
+		case 'adjacent_and_group':
+			return condition.students.every(pair =>
+				checkAdjacentAndGroup(pair[0], pair[1], condition.group, assignedStudentsMap)
+			);
+		default:
+			return true; // 未知條件類型，暫時視為滿足
+	}
 }
 
 // 約束函數：檢查學生 A 和 B 是否左右相鄰
@@ -153,9 +301,16 @@ function checkAdjacent(studentA, studentB, assignedStudentsMap) {
 	const seatB = assignedStudentsMap.get(studentB);
 
 	if (!seatA || !seatB) {
+		console.log(`[DEBUG] checkAdjacent: 學生 ${studentA} 或 ${studentB} 尚未分配。`);
 		return true; // 如果有學生尚未分配，則此條件暫時不衝突
 	}
-	return areSeatsAdjacentHorizontal(seatA, seatB);
+	const areAdjacent = areSeatsAdjacentAllDirections(seatA, seatB);
+	if (!areAdjacent) {
+		console.log(`[DEBUG] checkAdjacent: 學生 ${studentA} (座位: R${seatA.row}C${seatA.col}) 與學生 ${studentB} (座位: R${seatB.row}C${seatB.col}) 不相鄰。衝突類型: adjacent。`);
+	} else {
+		console.log(`[DEBUG] checkAdjacent: 學生 ${studentA} (座位: R${seatA.row}C${seatA.col}) 與學生 ${studentB} (座位: R${seatB.row}C${seatB.col}) 相鄰。`);
+	}
+	return areAdjacent;
 }
 
 // 約束函數：檢查學生組是否在同一區域內 (前後左右相鄰)
@@ -191,7 +346,11 @@ function checkGroupArea(studentsInGroup, assignedStudentsMap) {
 		}
 	}
 	// 如果所有組內已分配的座位都被訪問到，則表示它們是連通的
-	return visited.size === assignedSeatsInGroup.length;
+	const isConnected = visited.size === assignedSeatsInGroup.length;
+	if (!isConnected) {
+		console.log(`[DEBUG] checkGroupArea: 組內學生未形成連通區域。已分配學生數量: ${assignedSeatsInGroup.length}, 連通學生數量: ${visited.size}。衝突類型: group_area。`);
+	}
+	return isConnected;
 }
 
 // 約束函數：檢查學生 A 和 B 是否至少隔一人
@@ -203,7 +362,11 @@ function checkNotAdjacent(studentA, studentB, assignedStudentsMap) {
 		return true; // 如果有學生尚未分配，則此條件暫時不衝突
 	}
 	// 如果兩個座位前後左右相鄰，則不滿足「至少隔一人」
-	return !areSeatsAdjacentAllDirections(seatA, seatB);
+	const notAdjacent = !areSeatsAdjacentAllDirections(seatA, seatB);
+	if (!notAdjacent) {
+		console.log(`[DEBUG] checkNotAdjacent: 學生 ${studentA} (座位: R${seatA.row}C${seatA.col}) 與學生 ${studentB} (座位: R${seatB.row}C${seatB.col}) 相鄰，不滿足「至少隔一人」條件。衝突類型: not_adjacent。`);
+	}
+	return notAdjacent;
 }
 
 // 約束函數：檢查學生是否坐在指定群組的座位
@@ -212,7 +375,11 @@ function checkAssignGroup(student, groupName, assignedStudentsMap) {
 	if (!seat) {
 		return true; // 如果學生尚未分配，則此條件暫時不衝突
 	}
-	return seat.groupId === groupName;
+	const isInGroup = seat.groupId === groupName;
+	if (!isInGroup) {
+		console.log(`[DEBUG] checkAssignGroup: 學生 ${student} (座位: R${seat.row}C${seat.col}) 不在指定群組 ${groupName} 中。實際群組: ${seat.groupId}。衝突類型: assign_group。`);
+	}
+	return isInGroup;
 }
 
 // 約束函數：檢查學生 A 和 B 是否左右相鄰且都在指定群組
@@ -223,5 +390,9 @@ export function checkAdjacentAndGroup(studentA, studentB, groupName, assignedStu
 	if (!seatA || !seatB) {
 		return true; // 如果有學生尚未分配，則此條件暫時不衝突
 	}
-	return areSeatsAdjacentHorizontal(seatA, seatB) && seatA.groupId === groupName && seatB.groupId === groupName;
+	const isAdjacentAndInGroup = areSeatsAdjacentHorizontal(seatA, seatB) && seatA.groupId === groupName && seatB.groupId === groupName;
+	if (!isAdjacentAndInGroup) {
+		console.log(`[DEBUG] checkAdjacentAndGroup: 學生 ${studentA} (座位: R${seatA.row}C${seatA.col}) 與學生 ${studentB} (座位: R${seatB.row}C${seatB.col}) 不滿足「左右相鄰且都在指定群組 ${groupName}」條件。衝突類型: adjacent_and_group。`);
+	}
+	return isAdjacentAndInGroup;
 }

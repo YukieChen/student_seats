@@ -47,7 +47,7 @@ export function initializeAppState() {
 }
 
 // 初始化座位網格數據 (在設定學生人數後呼叫)
-export function initializeSeats(rows, cols) {
+export function initializeSeats(rows = 9, cols = 9) { // 預設為 9x9
 	appState.seats = Array(rows).fill(null).map((_, row) =>
 		Array(cols).fill(null).map((_, col) => new Seat(row, col))
 	);

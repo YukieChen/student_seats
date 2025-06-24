@@ -142,8 +142,8 @@ export function handleAddCondition() {
 		while ((match = regex.exec(studentsInput)) !== null) {
 			const student1 = parseInt(match[1]);
 			const student2 = parseInt(match[2]);
-			if (!isNaN(student1) && student1 >= 1 && student1 <= appState.studentCount &&
-				!isNaN(student2) && student2 >= 1 && student2 <= appState.studentCount) {
+			if (!isNaN(student1) && appState.studentIds.includes(student1) &&
+				!isNaN(student2) && appState.studentIds.includes(student2)) {
 				parsedStudents.push([student1, student2]);
 			}
 		}
@@ -153,8 +153,8 @@ export function handleAddCondition() {
 		}
 	} else if (conditionType === 'group_area' || conditionType === 'assign_group' || conditionType === 'adjacent_and_group') {
 		// 解析 1, 2, 3, 4 或 1 格式
-		const students = studentsInput.split(',').map(s => parseInt(s.trim())).filter(s => !isNaN(s) && s >= 1 && s <= appState.studentCount);
-		if (students.length === 0) {
+		const students = studentsInput.split(',').map(s => parseInt(s.trim())).filter(s => !isNaN(s) && appState.studentIds.includes(s));
+		if (students.length === 0 && studentsInput.length > 0) {
 			alert('請輸入有效的學生編號！');
 			return;
 		}

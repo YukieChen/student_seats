@@ -77,8 +77,8 @@ h1 {
 /* 座位網格樣式 */
 .seat-grid {
 	display: grid;
-	grid-template-columns: repeat(8, 50px);
-	grid-template-rows: repeat(8, 50px);
+	grid-template-columns: repeat(9, 50px);
+	grid-template-rows: repeat(9, 50px);
 	gap: 5px;
 	margin: 20px auto 0 auto;
 	/* 修正置中問題，並保留上方間距 */
@@ -340,8 +340,8 @@ h1 {
 	}
 
 	.seat-grid {
-		grid-template-columns: repeat(8, 40px);
-		grid-template-rows: repeat(8, 40px);
+		grid-template-columns: repeat(9, 40px);
+		grid-template-rows: repeat(9, 40px);
 		gap: 3px;
 		padding: 5px;
 	}
@@ -395,8 +395,8 @@ h1 {
 	}
 
 	.seat-grid {
-		grid-template-columns: repeat(8, 45px);
-		grid-template-rows: repeat(8, 45px);
+		grid-template-columns: repeat(9, 45px);
+		grid-template-rows: repeat(9, 45px);
 		gap: 4px;
 	}
 

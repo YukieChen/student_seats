@@ -5,6 +5,32 @@ import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handle
 import { downloadConfig, uploadConfig } from './utils.js';
 import { startAssignment } from './algorithms.js';
 
+// 新增輔助函數來解析學生編號字串
+function parseStudentIdsString(studentIdsString) {
+	let parsedIds = [];
+	if (studentIdsString) {
+		const parts = studentIdsString.split(',').map(s => s.trim());
+		for (const part of parts) {
+			if (part.includes('-')) {
+				const [start, end] = part.split('-').map(Number);
+				if (!isNaN(start) && !isNaN(end) && start <= end) {
+					for (let i = start; i <= end; i++) {
+						parsedIds.push(i);
+					}
+				}
+			} else {
+				const id = parseInt(part);
+				if (!isNaN(id)) {
+					parsedIds.push(id);
+				}
+			}
+		}
+		// 使用 Set 去重並排序
+		parsedIds = [...new Set(parsedIds)].sort((a, b) => a - b);
+	}
+	return parsedIds;
+}
+
 // 渲染畫面
 export function renderScreen(screenName) {
 	appState.currentScreen = screenName;
@@ -84,43 +110,25 @@ function renderInitialSetupScreen(initialSetupScreen) {
 			return;
 		}
 
-		let parsedStudentIds = [];
-		if (studentIdsString) {
-			const parts = studentIdsString.split(',').map(s => s.trim());
-			for (const part of parts) {
-				if (part.includes('-')) {
-					const [start, end] = part.split('-').map(Number);
-					if (!isNaN(start) && !isNaN(end) && start <= end) {
-						for (let i = start; i <= end; i++) {
-							parsedStudentIds.push(i);
-						}
-					}
-				} else {
-					const id = parseInt(part);
-					if (!isNaN(id)) {
-						parsedStudentIds.push(id);
-					}
-				}
-			}
-			parsedStudentIds = [...new Set(parsedStudentIds)].sort((a, b) => a - b); // 去重並排序
-		}
+		const parsedStudentIds = parseStudentIdsString(studentIdsString); // 使用輔助函數
 
 		if (parsedStudentIds.length === 0) {
 			alert('請輸入有效的學生座號！');
 			return;
 		}
 
-		if (parsedStudentIds.length !== newStudentCount) {
-			alert(`輸入的學生座號數量 (${parsedStudentIds.length}) 與班級總人數 (${newStudentCount}) 不符，請檢查！`);
-			return;
-		}
-
-		appState.studentCount = newStudentCount;
 		appState.studentIds = parsedStudentIds; // 更新 appState 中的學生座號列表
+		appState.studentCount = parsedStudentIds.length; // 確保 studentCount 反映 studentIds 的實際數量
+
+		// 驗證 studentCount 和 studentIds 的一致性
+		if (newStudentCount !== appState.studentCount) {
+			alert(`班級總人數 (${newStudentCount}) 與解析出的學生座號數量 (${appState.studentCount}) 不符。系統將以解析出的學生座號數量為準。`);
+			// 這裡不 return，讓程式繼續執行，以 parsedStudentIds.length 為準
+		}
 
 		// 初始化座位網格 (如果尚未初始化或需要重置)
 		if (appState.seats.length === 0 || appState.seats[0].length === 0) {
-			initializeSeats(8, 8); // 預設 8x8
+			initializeSeats(9, 9); // 預設 9x9
 		} else {
 			// 如果已經有座位，重置有效座位數
 			appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
