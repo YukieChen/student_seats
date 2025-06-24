@@ -1,7 +1,9 @@
 // ui.js - 介面渲染相關函數
 
 import { appState } from './state.js';
-import { handleSeatConfigClick, downloadConfig, uploadConfig, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, startAssignment, handleConditionTypeChange, handleAddCondition, handleDeleteCondition } from './handlers.js';
+import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition } from './handlers.js';
+import { downloadConfig, uploadConfig } from './utils.js';
+import { startAssignment } from './algorithms.js';
 
 // 渲染畫面
 export function renderScreen(screenName) {
