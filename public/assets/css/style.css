@@ -1,0 +1,407 @@
+/* 基本樣式 */
+body {
+	font-family: Arial, sans-serif;
+	margin: 0;
+	padding: 20px;
+	background-color: #f4f4f4;
+	color: #333;
+}
+
+#app {
+	max-width: 1200px;
+	margin: 0 auto;
+	background-color: #fff;
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	display: flex;
+	/* 使用 Flexbox 佈局 */
+	flex-direction: column;
+	/* 垂直排列子元素 */
+}
+
+h1 {
+	text-align: center;
+	color: #0056b3;
+	margin-bottom: 20px;
+	/* 增加標題下方間距 */
+}
+
+/* 主要佈局容器 */
+.main-layout {
+	display: flex;
+	/* 使用 Flexbox 佈局 */
+	gap: 20px;
+	/* 元素間距 */
+	flex-wrap: wrap;
+	/* 允許換行，以適應小螢幕 */
+}
+
+/* 左側控制面板 */
+.control-panel-container {
+	flex: 0 0 250px;
+	/* 固定寬度，不縮放 */
+	padding: 15px;
+	border: 1px solid #eee;
+	border-radius: 5px;
+	background-color: #f9f9f9;
+}
+
+/* 中央座位網格容器 */
+.seat-grid-container {
+	flex: 1;
+	/* 佔據剩餘空間 */
+	min-width: 400px;
+	/* 最小寬度，防止過度壓縮 */
+	padding: 15px;
+	border: 1px solid #eee;
+	border-radius: 5px;
+	background-color: #f9f9f9;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	/* 網格居中 */
+}
+
+/* 右側結果/衝突顯示區 */
+.result-section-container {
+	flex: 0 0 250px;
+	/* 固定寬度，不縮放 */
+	padding: 15px;
+	border: 1px solid #eee;
+	border-radius: 5px;
+	background-color: #f9f9f9;
+}
+
+
+/* 座位網格樣式 */
+.seat-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 50px);
+	grid-template-rows: repeat(7, 50px);
+	gap: 5px;
+	margin-top: 20px;
+	border: 1px solid #ccc;
+	padding: 10px;
+	background-color: #e9e9e9;
+}
+
+.seat {
+	width: 50px;
+	height: 50px;
+	border: 1px solid #ddd;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+	background-color: #f0f0f0;
+	transition: background-color 0.2s ease;
+	font-weight: bold;
+	color: #666;
+}
+
+/* 座位狀態顏色 */
+.seat.is-valid {
+	background-color: #d4edda;
+	/* 有效座位 (淺綠色，原規格書中的綠色) */
+	border-color: #28a745;
+}
+
+.seat.is-valid:hover {
+	background-color: #c3e6cb;
+}
+
+.seat.is-assigned {
+	background-color: #007bff;
+	/* 已分配學生 */
+	color: white;
+	border-color: #0056b3;
+}
+
+.seat.is-assigned:hover {
+	background-color: #0056b3;
+}
+
+.seat.is-invalid {
+	background-color: #f8d7da;
+	/* 無效座位 */
+	border-color: #dc3545;
+	cursor: not-allowed;
+}
+
+/* 新增的座位狀態顏色 (分群設定畫面) */
+.seat.is-valid-dark {
+	background-color: #6c757d;
+	/* 有效座位 (深灰色) */
+	color: white;
+	border-color: #5a6268;
+}
+
+.seat.is-valid-dark:hover {
+	background-color: #5a6268;
+}
+
+.seat.is-temp-selected-for-grouping {
+	background-color: #90ee90;
+	/* 淺綠色 */
+	border-color: #3cb371;
+}
+
+.seat.is-temp-selected-for-grouping:hover {
+	background-color: #7ccd7c;
+}
+
+
+/* 控制面板樣式 (調整為適用於 control-panel-container 內的子元素) */
+.control-panel {
+	display: flex;
+	flex-direction: column;
+	/* 垂直排列 */
+	gap: 15px;
+	/* 區塊間距 */
+}
+
+.control-section {
+	padding: 0;
+	/* 移除內邊距，由 container 提供 */
+	border: none;
+	/* 移除邊框，由 container 提供 */
+	border-radius: 0;
+	/* 移除圓角，由 container 提供 */
+	background-color: transparent;
+	/* 移除背景色，由 container 提供 */
+	margin-right: 0;
+	/* 移除右側間距 */
+}
+
+.control-section h3 {
+	margin-top: 0;
+	color: #0056b3;
+	margin-bottom: 10px;
+}
+
+.button {
+	padding: 8px 15px;
+	background-color: #007bff;
+	color: white;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+	margin-right: 5px;
+	margin-top: 5px;
+	/* 增加按鈕上方間距 */
+}
+
+.button:hover {
+	background-color: #0056b3;
+}
+
+.input-group {
+	margin-bottom: 10px;
+}
+
+.input-group label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: bold;
+}
+
+.input-group input[type="text"],
+.input-group select {
+	width: calc(100% - 18px);
+	/* 調整寬度以適應 padding 和 border */
+	padding: 8px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+}
+
+.condition-list {
+	list-style: none;
+	padding: 0;
+}
+
+.condition-list li {
+	background-color: #e2e3e5;
+	padding: 8px;
+	margin-bottom: 5px;
+	border-radius: 4px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.condition-list li .actions button {
+	background-color: #ffc107;
+	margin-left: 5px;
+}
+
+.condition-list li .actions button.delete {
+	background-color: #dc3545;
+}
+
+/* 結果區樣式 (調整為適用於 result-section-container 內的子元素) */
+.result-section {
+	padding: 0;
+	/* 移除內邊距，由 container 提供 */
+	border: none;
+	/* 移除邊框，由 container 提供 */
+	border-radius: 0;
+	/* 移除圓角，由 container 提供 */
+	background-color: transparent;
+	/* 移除背景色，由 container 提供 */
+	margin-top: 0;
+	/* 移除上方間距 */
+}
+
+.result-section h3 {
+	margin-top: 0;
+	color: #0056b3;
+	margin-bottom: 10px;
+}
+
+.unassigned-students {
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+.unassigned-students li {
+	background-color: #ffc107;
+	padding: 5px 10px;
+	border-radius: 4px;
+	font-weight: bold;
+}
+
+/* 群組顏色樣式 (可根據實際群組數量擴展) */
+.seat.group-A {
+	background-color: #a2d2ff;
+	/* 淺藍色 */
+	border-color: #4a90e2;
+	color: #333;
+}
+
+.seat.group-B {
+	background-color: #b0e0e6;
+	/* 粉藍色 */
+	border-color: #6a5acd;
+	color: #333;
+}
+
+.seat.group-C {
+	background-color: #c8f0c8;
+	/* 淺綠色 */
+	border-color: #5cb85c;
+	color: #333;
+}
+
+.seat.group-D {
+	background-color: #ffe0b2;
+	/* 淺橙色 */
+	border-color: #ff9800;
+	color: #333;
+}
+
+.seat.group-E {
+	background-color: #e6e6fa;
+	/* 薰衣草色 */
+	border-color: #9370db;
+	color: #333;
+}
+
+/* 更多群組顏色可以繼續添加 */
+
+/* 響應式設計 */
+
+/* 小螢幕設備 (例如手機) */
+@media (max-width: 768px) {
+	#app {
+		padding: 10px;
+	}
+
+	h1 {
+		font-size: 1.5em;
+	}
+
+	.main-layout {
+		flex-direction: column;
+		gap: 15px;
+	}
+
+	.control-panel-container,
+	.seat-grid-container,
+	.result-section-container {
+		flex: 1 1 100%;
+		min-width: auto;
+		padding: 10px;
+	}
+
+	.seat-grid {
+		grid-template-columns: repeat(7, 40px);
+		grid-template-rows: repeat(7, 40px);
+		gap: 3px;
+		padding: 5px;
+	}
+
+	.seat {
+		width: 40px;
+		height: 40px;
+		font-size: 0.8em;
+	}
+
+	.button {
+		padding: 6px 12px;
+		font-size: 12px;
+	}
+
+	.input-group input[type="text"],
+	.input-group select {
+		width: calc(100% - 16px);
+		padding: 6px;
+		font-size: 12px;
+	}
+}
+
+/* 中等螢幕設備 (例如平板) */
+@media (min-width: 769px) and (max-width: 1024px) {
+	#app {
+		max-width: 960px;
+	}
+
+	.main-layout {
+		flex-wrap: wrap;
+		/* 允許換行 */
+		justify-content: center;
+		/* 居中對齊 */
+	}
+
+	.control-panel-container {
+		flex: 1 1 300px;
+		/* 允許放大，但有最小寬度 */
+	}
+
+	.seat-grid-container {
+		flex: 2 1 500px;
+		/* 佔據更多空間 */
+	}
+
+	.result-section-container {
+		flex: 1 1 100%;
+		/* 堆疊在下方 */
+		margin-top: 20px;
+	}
+
+	.seat-grid {
+		grid-template-columns: repeat(7, 45px);
+		grid-template-rows: repeat(7, 45px);
+		gap: 4px;
+	}
+
+	.seat {
+		width: 45px;
+		height: 45px;
+		font-size: 0.9em;
+	}
+}
