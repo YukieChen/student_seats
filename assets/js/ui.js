@@ -223,7 +223,7 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
 	});
 	seatGridHtml += `
         </div>
-        <button class="button" id="back-to-seat-config-button">返回座位配置</button>
+        <button class="button" id="next-to-assignment-button">下一步：設定條件</button>
     `;
 	mainGridArea.innerHTML = seatGridHtml;
 
@@ -250,7 +250,7 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
                 ${appState.groups.map(g => `<li>${g} <button class="button delete" data-group="${g}">刪除</button></li>`).join('')}
             </ul>
         </div>
-        <button class="button" id="next-to-assignment-button">下一步：設定條件</button>
+        <button class="button" id="back-to-seat-config-button">返回座位配置</button>
     `;
 
 	// 右側面板 (此畫面暫時留空或顯示提示)
