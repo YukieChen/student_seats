@@ -1,6 +1,6 @@
 // ui.js - 介面渲染相關函數
 
-import { appState } from './state.js';
+import { appState, initializeSeats } from './state.js';
 import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition } from './handlers.js';
 import { downloadConfig, uploadConfig } from './utils.js';
 import { startAssignment } from './algorithms.js';
@@ -8,30 +8,137 @@ import { startAssignment } from './algorithms.js';
 // 渲染畫面
 export function renderScreen(screenName) {
 	appState.currentScreen = screenName;
+	const initialSetupScreen = document.getElementById('initial-setup-screen');
 	const mainGridArea = document.getElementById('main-grid-area');
 	const leftPanel = document.getElementById('left-panel');
 	const rightPanel = document.getElementById('right-panel');
 
-	// 清空所有面板內容
+	// 隱藏所有面板
+	initialSetupScreen.style.display = 'none';
+	mainGridArea.style.display = 'none';
+	leftPanel.style.display = 'none';
+	rightPanel.style.display = 'none';
+
+	// 清空所有面板內容 (除了 initialSetupScreen，因為它會被重新渲染)
 	mainGridArea.innerHTML = '';
 	leftPanel.innerHTML = '';
 	rightPanel.innerHTML = '';
 
-	switch (appState.currentScreen) {
+	switch (screenName) { // 使用傳入的 screenName
+		case 'initialSetup':
+			initialSetupScreen.style.display = 'flex'; // 顯示初始設定畫面
+			renderInitialSetupScreen(initialSetupScreen);
+			break;
 		case 'seatConfig':
+			mainGridArea.style.display = 'grid'; // 顯示網格
+			leftPanel.style.display = 'block';
+			rightPanel.style.display = 'block';
 			renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel);
 			break;
 		case 'groupingSetup':
+			mainGridArea.style.display = 'grid'; // 顯示網格
+			leftPanel.style.display = 'block';
+			rightPanel.style.display = 'block';
 			renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel);
 			break;
 		case 'assignment':
+			mainGridArea.style.display = 'grid'; // 顯示網格
+			leftPanel.style.display = 'block';
+			rightPanel.style.display = 'block';
 			renderAssignmentScreen(mainGridArea, leftPanel, rightPanel);
 			break;
 	}
 }
 
+// 渲染初始設定畫面
+function renderInitialSetupScreen(initialSetupScreen) {
+	initialSetupScreen.innerHTML = `
+	       <div class="control-section">
+	           <h3>班級學生設定</h3>
+	           <div class="input-group">
+	               <label for="student-count-input">班級總人數:</label>
+	               <input type="number" id="student-count-input" value="${appState.studentCount}" min="1" max="100">
+	           </div>
+	           <div class="input-group">
+	               <label for="student-ids-input">學生座號 (逗號分隔或範圍，例如: 1, 3-7, 9-12, 14-36):</label>
+	               <input type="text" id="student-ids-input" placeholder="例如: 1-35" value="${appState.studentIds.join(', ')}">
+	           </div>
+	           <button class="button" id="start-seat-config-button">開始座位配置</button>
+	           <div class="control-section" style="margin-top: 20px;">
+	               <h3>設定檔操作</h3>
+	               <input type="file" id="upload-config-input" accept=".json" style="display: none;">
+	               <button class="button" id="upload-config-button">上傳設定</button>
+	           </div>
+	       </div>
+	   `;
+
+	document.getElementById('start-seat-config-button').addEventListener('click', () => {
+		const studentCountInput = document.getElementById('student-count-input');
+		const studentIdsInput = document.getElementById('student-ids-input');
+
+		const newStudentCount = parseInt(studentCountInput.value);
+		const studentIdsString = studentIdsInput.value.trim();
+
+		if (isNaN(newStudentCount) || newStudentCount <= 0) {
+			alert('請輸入有效的班級總人數！');
+			return;
+		}
+
+		let parsedStudentIds = [];
+		if (studentIdsString) {
+			const parts = studentIdsString.split(',').map(s => s.trim());
+			for (const part of parts) {
+				if (part.includes('-')) {
+					const [start, end] = part.split('-').map(Number);
+					if (!isNaN(start) && !isNaN(end) && start <= end) {
+						for (let i = start; i <= end; i++) {
+							parsedStudentIds.push(i);
+						}
+					}
+				} else {
+					const id = parseInt(part);
+					if (!isNaN(id)) {
+						parsedStudentIds.push(id);
+					}
+				}
+			}
+			parsedStudentIds = [...new Set(parsedStudentIds)].sort((a, b) => a - b); // 去重並排序
+		}
+
+		if (parsedStudentIds.length === 0) {
+			alert('請輸入有效的學生座號！');
+			return;
+		}
+
+		if (parsedStudentIds.length !== newStudentCount) {
+			alert(`輸入的學生座號數量 (${parsedStudentIds.length}) 與班級總人數 (${newStudentCount}) 不符，請檢查！`);
+			return;
+		}
+
+		appState.studentCount = newStudentCount;
+		appState.studentIds = parsedStudentIds; // 更新 appState 中的學生座號列表
+
+		// 初始化座位網格 (如果尚未初始化或需要重置)
+		if (appState.seats.length === 0 || appState.seats[0].length === 0) {
+			initializeSeats(7, 7); // 預設 7x7
+		} else {
+			// 如果已經有座位，重置有效座位數
+			appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
+		}
+
+		renderScreen('seatConfig'); // 進入座位配置畫面
+	});
+
+	document.getElementById('upload-config-button').addEventListener('click', () => document.getElementById('upload-config-input').click());
+	document.getElementById('upload-config-input').addEventListener('change', uploadConfig);
+}
+
 // 渲染座位佈局設定畫面
 function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
+	console.log('--- renderSeatConfigScreen 渲染時狀態 ---');
+	console.log('appState.studentCount:', appState.studentCount);
+	console.log('appState.selectedValidSeatsCount:', appState.selectedValidSeatsCount);
+
 	// 中央座位網格
 	let seatGridHtml = `
         <div class="seat-grid">
@@ -58,8 +165,6 @@ function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
         <div class="control-section">
             <h3>設定檔操作</h3>
             <button class="button" id="download-config-button">下載設定</button>
-            <input type="file" id="upload-config-input" accept=".json" style="display: none;">
-            <button class="button" id="upload-config-button">上傳設定</button>
         </div>
     `;
 
@@ -83,8 +188,6 @@ function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
 		renderScreen('groupingSetup');
 	});
 	document.getElementById('download-config-button').addEventListener('click', downloadConfig);
-	document.getElementById('upload-config-button').addEventListener('click', () => document.getElementById('upload-config-input').click());
-	document.getElementById('upload-config-input').addEventListener('change', uploadConfig);
 }
 
 // 渲染分群設定畫面
@@ -178,6 +281,12 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
 
 // 渲染座位安排條件設定畫面
 function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
+	console.log('--- renderAssignmentScreen 渲染時狀態 ---');
+	console.log('appState.studentCount:', appState.studentCount);
+	console.log('appState.studentIds.length:', appState.studentIds.length);
+	console.log('appState.selectedValidSeatsCount:', appState.selectedValidSeatsCount);
+	console.log('appState.seats (部分):', appState.seats.slice(0, 2)); // 顯示前兩行座位數據
+
 	// 中央座位網格 (顯示已分配的學生)
 	let seatGridHtml = `
         <div class="seat-grid">
@@ -262,11 +371,29 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
             <ul id="unassigned-students-list" class="unassigned-students">
                 <!-- 未安排學生將在此處顯示 -->
             </ul>
+            <div id="assignment-status" style="margin-top: 10px; font-weight: bold;"></div>
         </div>
     `;
 
 	// 添加事件監聽器
-	document.getElementById('start-assignment-button').addEventListener('click', startAssignment);
+	document.getElementById('start-assignment-button').addEventListener('click', async () => {
+		const startButton = document.getElementById('start-assignment-button');
+		const unassignedListElement = document.getElementById('unassigned-students-list');
+
+		startButton.disabled = true; // 禁用按鈕
+		startButton.textContent = '安排中...'; // 顯示載入訊息
+		unassignedListElement.innerHTML = '<li>安排中，請稍候...</li>'; // 清空並顯示載入訊息
+
+		try {
+			await startAssignment(); // 等待安排完成
+		} catch (error) {
+			console.error('座位安排過程中發生錯誤:', error);
+			alert('座位安排過程中發生錯誤，請檢查控制台。');
+		} finally {
+			startButton.disabled = false; // 重新啟用按鈕
+			startButton.textContent = '開始安排'; // 恢復按鈕文字
+		}
+	});
 	document.getElementById('download-config-button-assignment').addEventListener('click', downloadConfig); // 新增下載按鈕事件
 	document.getElementById('back-to-grouping-button').addEventListener('click', () => renderScreen('groupingSetup'));
 	document.getElementById('condition-type').addEventListener('change', handleConditionTypeChange);

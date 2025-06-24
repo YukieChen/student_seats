@@ -70,6 +70,8 @@ export function getConditionDescription(condition) {
 // 下載設定
 export function downloadConfig() {
 	const config = {
+		studentCount: appState.studentCount, // 新增學生總人數
+		studentIds: appState.studentIds,     // 新增學生座號列表
 		seats: appState.seats.map(row => row.map(seat => ({
 			row: seat.row,
 			col: seat.col,
@@ -97,17 +99,39 @@ export function uploadConfig(event) {
 		reader.onload = (e) => {
 			try {
 				const loadedConfig = JSON.parse(e.target.result);
+				// 載入學生人數和座號
+				if (typeof loadedConfig.studentCount === 'number' && loadedConfig.studentCount >= 0) {
+					appState.studentCount = loadedConfig.studentCount;
+				} else {
+					appState.studentCount = 0;
+				}
+				if (loadedConfig.studentIds && Array.isArray(loadedConfig.studentIds)) {
+					appState.studentIds = loadedConfig.studentIds;
+				} else {
+					appState.studentIds = [];
+				}
+
 				// 載入座位佈局
-				if (loadedConfig.seats && Array.isArray(loadedConfig.seats) && loadedConfig.seats.length === 7) {
-					appState.seats = loadedConfig.seats.map(row => row.map(loadedSeat => {
-						const seat = new Seat(loadedSeat.row, loadedSeat.col);
-						seat.isValid = loadedSeat.isValid;
-						seat.groupId = loadedSeat.groupId;
-						return seat;
-					}));
+				if (loadedConfig.seats && Array.isArray(loadedConfig.seats) && loadedConfig.seats.length > 0) { // 允許非 7x7
+					// 重新初始化座位網格以匹配載入的尺寸
+					const rows = loadedConfig.seats.length;
+					const cols = loadedConfig.seats[0].length;
+					appState.seats = Array(rows).fill(null).map((_, r) =>
+						Array(cols).fill(null).map((_, c) => {
+							const loadedSeat = loadedConfig.seats[r][c];
+							const seat = new Seat(loadedSeat.row, loadedSeat.col);
+							seat.isValid = loadedSeat.isValid;
+							seat.groupId = loadedSeat.groupId;
+							return seat;
+						})
+					);
 					appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
 				} else {
-					throw new Error("無效的座位佈局數據。");
+					// 如果沒有座位數據，則初始化一個空的 7x7 網格
+					appState.seats = Array(7).fill(null).map((_, row) =>
+						Array(7).fill(null).map((_, col) => new Seat(row, col))
+					);
+					appState.selectedValidSeatsCount = 0;
 				}
 
 				// 載入群組
@@ -131,7 +155,23 @@ export function uploadConfig(event) {
 				}
 
 				alert('設定檔載入成功！');
-				renderScreen('seatConfig'); // 載入成功後回到座位配置畫面
+				console.log('--- uploadConfig 載入後狀態 ---');
+				console.log('loadedConfig:', loadedConfig);
+				console.log('appState.studentCount:', appState.studentCount);
+				console.log('appState.studentIds.length:', appState.studentIds.length);
+				console.log('appState.selectedValidSeatsCount:', appState.selectedValidSeatsCount);
+
+				// 載入成功後，根據載入的數據決定跳轉到哪個畫面
+				if (appState.studentCount > 0 && appState.studentIds.length > 0 && appState.selectedValidSeatsCount > 0) {
+					console.log('跳轉到: assignment');
+					renderScreen('assignment'); // 如果有學生和座位，直接跳到安排畫面
+				} else if (appState.studentCount > 0 && appState.studentIds.length > 0) {
+					console.log('跳轉到: seatConfig');
+					renderScreen('seatConfig'); // 如果有學生但沒座位，跳到座位配置
+				} else {
+					console.log('跳轉到: initialSetup');
+					renderScreen('initialSetup'); // 如果沒有學生數據，回到初始設定
+				}
 			} catch (error) {
 				alert('載入設定檔失敗：' + error.message);
 				console.error('載入設定檔錯誤:', error);

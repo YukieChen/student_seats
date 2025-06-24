@@ -16,11 +16,11 @@ export function handleSeatConfigClick(event) {
 		seat.groupId = undefined; // 取消有效座位時，移除群組設定
 		appState.selectedValidSeatsCount--;
 	} else {
-		if (appState.selectedValidSeatsCount < appState.studentCount) {
+		if (appState.selectedValidSeatsCount < appState.studentIds.length) {
 			seat.isValid = true;
 			appState.selectedValidSeatsCount++;
 		} else {
-			alert(`最多只能選擇 ${appState.studentCount} 個有效座位。`);
+			alert(`最多只能選擇 ${appState.studentIds.length} 個有效座位。`);
 		}
 	}
 	renderScreen('seatConfig'); // 重新渲染當前畫面

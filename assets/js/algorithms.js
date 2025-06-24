@@ -5,12 +5,12 @@ import { renderScreen } from './ui.js';
 import { areSeatsAdjacentHorizontal, areSeatsAdjacentAllDirections, getNeighboringValidSeats } from './utils.js';
 
 // 核心演算法：開始安排座位
-export function startAssignment() {
+export async function startAssignment() {
 	// 清空之前的學生分配
 	appState.seats.forEach(row => row.forEach(seat => seat.studentId = undefined));
 
 	// 準備數據
-	let allStudents = Array.from({ length: appState.studentCount }, (_, i) => i + 1); // 1 到 35 號學生
+	let allStudents = [...appState.studentIds]; // 使用 appState 中設定的學生座號列表
 	let availableValidSeats = appState.seats.flat().filter(seat => seat.isValid);
 
 	// 學生排序 (啟發式：參與條件最多的學生優先)
@@ -29,7 +29,7 @@ export function startAssignment() {
 	let unassignedStudents = []; // 最終無法安排的學生
 
 	// 調用回溯演算法
-	const success = solveAssignment(
+	const success = await solveAssignment(
 		0, // studentIndex
 		allStudents,
 		assignedStudentsMap,
@@ -62,7 +62,7 @@ export function startAssignment() {
 }
 
 // 回溯演算法核心
-function solveAssignment(studentIndex, studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult) {
+async function solveAssignment(studentIndex, studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult) {
 	// 基本情況：所有學生都已嘗試分配
 	if (studentIndex === studentsToAssign.length) {
 		return true; // 所有學生都已成功分配
@@ -76,6 +76,8 @@ function solveAssignment(studentIndex, studentsToAssign, currentAssignment, avai
 	const shuffledAvailableSeats = [...availableSeats].sort(() => Math.random() - 0.5);
 
 	for (const seat of shuffledAvailableSeats) {
+		// 每次迭代都讓出控制權，避免阻塞 UI
+		await new Promise(resolve => setTimeout(resolve, 0));
 		// 檢查座位是否已被佔用
 		if (seat.studentId !== undefined) {
 			continue;
@@ -130,7 +132,7 @@ function solveAssignment(studentIndex, studentsToAssign, currentAssignment, avai
 
 		if (allConditionsMet) {
 			// 如果當前分配滿足所有條件，則遞迴處理下一個學生
-			if (solveAssignment(studentIndex + 1, studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult)) {
+			if (await solveAssignment(studentIndex + 1, studentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult)) {
 				return true; // 找到一個完整解
 			}
 		}

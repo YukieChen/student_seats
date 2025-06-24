@@ -1,11 +1,12 @@
 // state.js - 應用程式狀態管理
 
 export let appState = {
-	currentScreen: 'seatConfig', // 'seatConfig', 'groupingSetup', 'assignment'
+	currentScreen: 'initialSetup', // 初始畫面為 'initialSetup'
 	seats: [],                   // 7x7 的 Seat 對象陣列
 	groups: [],                  // 字符串陣列，例如: ['第一組', '第二組']
 	conditions: [],              // Condition 對象陣列
-	studentCount: 35,            // 學生人數上限
+	studentCount: 0,             // 學生人數，由使用者設定
+	studentIds: [],              // 學生座號列表，例如: [1, 3, 4, ..., 36]
 	selectedValidSeatsCount: 0   // 已選取的有效座位數量
 };
 
@@ -34,15 +35,23 @@ export class Condition {
 	}
 }
 
-// 初始化座位網格數據
-export function initializeSeatsData() {
-	appState.seats = Array(7).fill(null).map((_, row) =>
-		Array(7).fill(null).map((_, col) => new Seat(row, col))
-	);
-	appState.selectedValidSeatsCount = 0;
+// 初始化應用程式狀態 (在應用程式啟動時呼叫一次)
+export function initializeAppState() {
+	appState.currentScreen = 'initialSetup';
+	appState.seats = [];
 	appState.groups = [];
 	appState.conditions = [];
-	appState.currentScreen = 'seatConfig';
+	appState.studentCount = 0;
+	appState.studentIds = [];
+	appState.selectedValidSeatsCount = 0;
+}
+
+// 初始化座位網格數據 (在設定學生人數後呼叫)
+export function initializeSeats(rows, cols) {
+	appState.seats = Array(rows).fill(null).map((_, row) =>
+		Array(cols).fill(null).map((_, col) => new Seat(row, col))
+	);
+	appState.selectedValidSeatsCount = 0; // 重置已選座位數
 }
 
 // 更新 appState 的函數 (用於從其他模組修改狀態)
