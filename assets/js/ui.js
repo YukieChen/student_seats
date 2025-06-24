@@ -120,7 +120,7 @@ function renderInitialSetupScreen(initialSetupScreen) {
 
 		// 初始化座位網格 (如果尚未初始化或需要重置)
 		if (appState.seats.length === 0 || appState.seats[0].length === 0) {
-			initializeSeats(7, 7); // 預設 7x7
+			initializeSeats(8, 8); // 預設 8x8
 		} else {
 			// 如果已經有座位，重置有效座位數
 			appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
