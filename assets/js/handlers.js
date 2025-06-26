@@ -1,7 +1,7 @@
 // handlers.js - 事件處理函數
 
 import { appState, Seat, Condition } from './state.js';
-import { renderScreen, updateControlPanel, updateStudentGroupList } from './ui.js';
+import { renderScreen, updateControlPanel, updateStudentGroupList, updateGroupingSetupGrid } from './ui.js';
 import { downloadConfig, uploadConfig, getConditionDescription, parseStudentIdsString } from './utils.js'; // 引入 parseStudentIdsString
 import { startAssignment } from './algorithms.js';
 import { showPreAssignmentWarning } from './ui.js'; // 引入新的 UI 警告函數
@@ -35,8 +35,14 @@ export function handleGroupingSetupClick(event) {
 
 	if (seat.isValid) { // 只能點選有效座位
 		seat.isTempSelectedForGrouping = !seat.isTempSelectedForGrouping;
-		renderScreen('groupingSetup'); // 重新渲染當前畫面
+		updateGroupingSetupGrid(document.getElementById('main-grid-area')); // 只更新網格
 	}
+}
+
+// 處理群組選擇下拉選單的變更事件
+export function handleGroupSelectChange(event) {
+	appState.selectedGroupIdForGrouping = event.target.value;
+	// 不需要重新渲染整個畫面，因為選擇狀態已經在 appState 中更新，並且在 renderGroupingSetupScreen 時會被正確設定
 }
 
 // 處理分配選取座位至群組
@@ -64,13 +70,13 @@ export function handleAssignSelectedSeatsToGroup() {
 	} else {
 		alert('沒有選取任何座位可供分配。');
 	}
-	renderScreen('groupingSetup'); // 重新渲染當前畫面
+	updateGroupingSetupGrid(document.getElementById('main-grid-area')); // 只更新網格
 }
 
 // 處理取消選取 (清除淺綠色狀態)
 export function handleClearTempSelection() {
 	appState.seats.forEach(row => row.forEach(seat => seat.isTempSelectedForGrouping = false));
-	renderScreen('groupingSetup'); // 重新渲染當前畫面
+	updateGroupingSetupGrid(document.getElementById('main-grid-area')); // 只更新網格
 }
 
 // 處理新增群組
@@ -80,8 +86,8 @@ export function handleAddGroup() {
 	if (groupName && !appState.groups.includes(groupName)) {
 		appState.groups.push(groupName);
 		groupNameInput.value = '';
-		updateControlPanel();
-		renderScreen('groupingSetup'); // 重新渲染分群畫面以更新群組列表
+		updateControlPanel(); // 更新左側面板的群組列表
+		// 不需要重新渲染整個畫面，因為 updateControlPanel 會處理群組列表的更新
 	} else if (groupName) {
 		alert('群組名稱已存在！');
 	}
@@ -105,8 +111,8 @@ export function handleDeleteGroup(event) {
 	if (appState.groupSeatAssignments[groupToDelete]) {
 		delete appState.groupSeatAssignments[groupToDelete];
 	}
-	renderScreen('groupingSetup'); // 重新渲染分群畫面以反映群組顏色變化和列表
-	updateControlPanel();
+	updateGroupingSetupGrid(document.getElementById('main-grid-area')); // 更新網格以反映群組顏色變化
+	updateControlPanel(); // 更新左側面板的群組列表
 }
 
 // 處理學生群組與座位分群的綁定
@@ -119,7 +125,8 @@ export function handleAssignStudentGroupToSeatGroup(event) {
 	} else {
 		delete appState.groupSeatAssignments[seatGroupId]; // 如果選擇空值，則移除綁定
 	}
-	renderScreen('groupingSetup'); // 重新渲染以更新 UI 顯示
+	updateGroupingSetupGrid(document.getElementById('main-grid-area')); // 更新網格以更新 UI 顯示
+	updateControlPanel(); // 更新左側面板的群組列表
 }
 
 // 處理條件類型變化

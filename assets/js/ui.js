@@ -1,7 +1,7 @@
 // ui.js - 介面渲染相關函數
 
 import { appState, initializeSeats } from './state.js';
-import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition, handleAddStudentGroup, handleDeleteStudentGroup, handleAssignStudentGroupToSeatGroup } from './handlers.js';
+import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition, handleAddStudentGroup, handleDeleteStudentGroup, handleAssignStudentGroupToSeatGroup, handleGroupSelectChange } from './handlers.js';
 import { downloadConfig, uploadConfig } from './utils.js';
 import { startAssignment } from './algorithms.js';
 
@@ -393,10 +393,63 @@ function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
 
 // 渲染分群設定畫面
 function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
-	// 中央座位網格
-	let seatGridHtml = `
-        <div class="seat-grid">
+	// 左側控制面板 (分群管理)
+	leftPanel.innerHTML = `
+        <div class="control-section">
+            <h3>群組管理</h3>
+            <div class="input-group">
+                <label for="group-name-input">新增群組名稱:</label>
+                <input type="text" id="group-name-input" placeholder="例如: 第一組">
+                <button class="button" id="add-group-button">新增群組</button>
+            </div>
+            <div class="input-group">
+                <label for="group-select">選擇群組:</label>
+                <select id="group-select">
+                    <!-- 選項將由 updateControlPanel 渲染 -->
+                </select>
+                <button class="button" id="assign-selected-to-group-button">分配選取座位至群組</button>
+                <button class="button" id="clear-temp-selection-button">取消選取</button>
+            </div>
+            <h4>已定義群組:</h4>
+            <ul id="group-list">
+                <!-- 已定義群組將由 updateControlPanel 渲染 -->
+            </ul>
+        </div>
+        <button class="button" id="back-to-seat-config-button">返回座位配置</button>
     `;
+
+	// 右側面板 (此畫面暫時留空或顯示提示)
+	rightPanel.innerHTML = `
+        <div class="result-section">
+            <h3>提示</h3>
+            <p>請選取座位並分配群組。</p>
+        </div>
+    `;
+
+	// 添加事件監聽器
+	document.getElementById('back-to-seat-config-button').addEventListener('click', () => {
+		// 清除所有臨時選取狀態
+		appState.seats.forEach(row => row.forEach(seat => seat.isTempSelectedForGrouping = false));
+		appState.selectedGroupIdForGrouping = undefined; // 清除選定的群組
+		renderScreen('seatConfig');
+	});
+	document.getElementById('add-group-button').addEventListener('click', handleAddGroup);
+	document.getElementById('assign-selected-to-group-button').addEventListener('click', handleAssignSelectedSeatsToGroup);
+	document.getElementById('clear-temp-selection-button').addEventListener('click', handleClearTempSelection);
+
+	// 新增群組選擇器事件監聽器
+	document.getElementById('group-select').addEventListener('change', handleGroupSelectChange);
+
+	// 初始渲染座位網格和控制面板內容
+	updateGroupingSetupGrid(mainGridArea);
+	updateControlPanel();
+}
+
+// 新增函數：更新分群設定畫面的座位網格
+export function updateGroupingSetupGrid(mainGridArea) {
+	let seatGridHtml = `
+	       <div class="seat-grid">
+	   `;
 	appState.seats.forEach(row => {
 		row.forEach(seat => {
 			let seatClass = '';
@@ -420,86 +473,23 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
 			}
 
 			seatGridHtml += `
-                <div class="seat ${seatClass}" data-row="${seat.row}" data-col="${seat.col}">
-                    ${seatContent}
-                </div>
-            `;
+	               <div class="seat ${seatClass}" data-row="${seat.row}" data-col="${seat.col}">
+	                   ${seatContent}
+	               </div>
+	           `;
 		});
 	});
 	seatGridHtml += `
-        </div>
-        <button class="button" id="next-to-assignment-button">下一步：設定條件</button>
-    `;
+	       </div>
+	       <button class="button" id="next-to-assignment-button">下一步：設定條件</button>
+	   `;
 	mainGridArea.innerHTML = seatGridHtml;
 
-	// 左側控制面板 (分群管理)
-	leftPanel.innerHTML = `
-        <div class="control-section">
-            <h3>群組管理</h3>
-            <div class="input-group">
-                <label for="group-name-input">新增群組名稱:</label>
-                <input type="text" id="group-name-input" placeholder="例如: 第一組">
-                <button class="button" id="add-group-button">新增群組</button>
-            </div>
-            <div class="input-group">
-                <label for="group-select">選擇群組:</label>
-                <select id="group-select">
-                    <option value="">-- 選擇群組 --</option>
-                    ${appState.groups.map(g => `<option value="${g}">${g}</option>`).join('')}
-                </select>
-                <button class="button" id="assign-selected-to-group-button">分配選取座位至群組</button>
-                <button class="button" id="clear-temp-selection-button">取消選取</button>
-            </div>
-            <h4>已定義群組:</h4>
-            <ul id="group-list">
-                ${appState.groups.map(g => `
-                    <li>
-                        ${g}
-                        ${appState.groupSeatAssignments[g] ? `(綁定學生群組: ${appState.groupSeatAssignments[g]})` : ''}
-                        <div class="actions">
-                            <select class="student-group-assign-select" data-group-id="${g}">
-                                <option value="">-- 綁定學生群組 --</option>
-                                ${Object.keys(appState.studentGroups).map(sgName => `
-                                    <option value="${sgName}" ${appState.groupSeatAssignments[g] === sgName ? 'selected' : ''}>
-                                        ${sgName}
-                                    </option>
-                                `).join('')}
-                            </select>
-                            <button class="button delete" data-group="${g}">刪除</button>
-                        </div>
-                    </li>
-                `).join('')}
-            </ul>
-        </div>
-        <button class="button" id="back-to-seat-config-button">返回座位配置</button>
-    `;
-
-	// 右側面板 (此畫面暫時留空或顯示提示)
-	rightPanel.innerHTML = `
-        <div class="result-section">
-            <h3>提示</h3>
-            <p>請選取座位並分配群組。</p>
-        </div>
-    `;
-
-	// 添加事件監聽器
+	// 重新添加座位點擊事件監聽器
 	document.querySelectorAll('.seat').forEach(seatElement => {
 		seatElement.addEventListener('click', handleGroupingSetupClick);
 	});
-	document.getElementById('back-to-seat-config-button').addEventListener('click', () => {
-		// 清除所有臨時選取狀態
-		appState.seats.forEach(row => row.forEach(seat => seat.isTempSelectedForGrouping = false));
-		renderScreen('seatConfig');
-	});
-	document.getElementById('add-group-button').addEventListener('click', handleAddGroup);
-	document.getElementById('assign-selected-to-group-button').addEventListener('click', handleAssignSelectedSeatsToGroup);
-	document.getElementById('clear-temp-selection-button').addEventListener('click', handleClearTempSelection);
-	document.querySelectorAll('#group-list .delete').forEach(button => {
-		button.addEventListener('click', handleDeleteGroup);
-	});
-	document.querySelectorAll('.student-group-assign-select').forEach(select => {
-		select.addEventListener('change', handleAssignStudentGroupToSeatGroup);
-	});
+	// 將 next-to-assignment-button 的事件監聽器移到這裡，確保元素已存在
 	document.getElementById('next-to-assignment-button').addEventListener('click', () => renderScreen('assignment'));
 }
 
@@ -627,13 +617,21 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
 
 // 輔助函式：更新控制面板的動態內容 (主要用於條件和群組選擇器)
 export function updateControlPanel() {
-	// 更新群組選擇器 (適用於條件設定畫面)
-	const groupSelects = document.querySelectorAll('#group-select, #condition-group-select');
-	groupSelects.forEach(select => {
-		const currentSelected = select.value;
-		select.innerHTML = '<option value="">-- 選擇群組 --</option>' +
+	// 更新分群設定畫面中的群組選擇器 (#group-select)
+	const groupSelect = document.getElementById('group-select');
+	if (groupSelect) {
+		const currentSelected = appState.selectedGroupIdForGrouping || ''; // 確保有預設值
+		groupSelect.innerHTML = '<option value="">-- 選擇群組 --</option>' +
 			appState.groups.map(g => `<option value="${g}" ${g === currentSelected ? 'selected' : ''}>${g}</option>`).join('');
-	});
+	}
+
+	// 更新條件設定畫面中的群組選擇器 (#condition-group-select)
+	const conditionGroupSelect = document.getElementById('condition-group-select');
+	if (conditionGroupSelect) {
+		const currentSelected = conditionGroupSelect.value;
+		conditionGroupSelect.innerHTML = '<option value="">-- 選擇群組 --</option>' +
+			appState.groups.map(g => `<option value="${g}" ${g === currentSelected ? 'selected' : ''}>${g}</option>`).join('');
+	}
 
 	// 更新學生群組選擇器 (適用於條件設定畫面)
 	const studentGroupSelect = document.getElementById('condition-student-group-select');
