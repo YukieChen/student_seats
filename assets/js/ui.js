@@ -1,9 +1,28 @@
 // ui.js - 介面渲染相關函數
 
 import { appState, initializeSeats } from './state.js';
-import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition } from './handlers.js';
+import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition, handleAddStudentGroup, handleDeleteStudentGroup, handleAssignStudentGroupToSeatGroup } from './handlers.js';
 import { downloadConfig, uploadConfig } from './utils.js';
 import { startAssignment } from './algorithms.js';
+
+/**
+ * 顯示排位前檢查的警告訊息，並提供使用者選擇。
+ * @param {Array<Object>} inconsistencies - 包含不合理綁定資訊的陣列。
+ * @param {Function} onUserDecision - 使用者做出選擇後的回調函數 (true 為繼續, false 為返回修改)。
+ */
+export function showPreAssignmentWarning(inconsistencies, onUserDecision) {
+	let message = '偵測到以下學生群組與座位分群的綁定可能不合理：\n\n';
+	inconsistencies.forEach(item => {
+		message += `學生群組「${item.studentGroupName}」有 ${item.studentCount} 人，但綁定的座位分群「${item.seatGroupId}」只有 ${item.availableSeatsCount} 個可用座位。\n`;
+	});
+	message += '\n繼續排位可能導致部分學生無法被安排。您確定要繼續嗎？';
+
+	if (confirm(message)) {
+		onUserDecision(true); // 使用者選擇繼續
+	} else {
+		onUserDecision(false); // 使用者選擇返回修改
+	}
+}
 
 // 新增輔助函數來解析學生編號字串
 function parseStudentIdsString(studentIdsString) {
@@ -34,50 +53,84 @@ function parseStudentIdsString(studentIdsString) {
 // 渲染畫面
 export function renderScreen(screenName) {
 	appState.currentScreen = screenName;
+
 	const initialSetupScreen = document.getElementById('initial-setup-screen');
+	const studentGroupingScreen = document.getElementById('student-grouping-screen'); // 確保這裡有定義
 	const mainGridArea = document.getElementById('main-grid-area');
 	const leftPanel = document.getElementById('left-panel');
 	const rightPanel = document.getElementById('right-panel');
 
 	// 隱藏所有面板
-	initialSetupScreen.style.display = 'none';
-	mainGridArea.style.display = 'none';
-	leftPanel.style.display = 'none';
-	rightPanel.style.display = 'none';
+	if (initialSetupScreen) initialSetupScreen.style.display = 'none';
+	if (studentGroupingScreen) studentGroupingScreen.style.display = 'none';
+	if (mainGridArea) mainGridArea.style.display = 'none';
+	if (leftPanel) leftPanel.style.display = 'none';
+	if (rightPanel) rightPanel.style.display = 'none';
 
 	// 清空所有面板內容 (除了 initialSetupScreen，因為它會被重新渲染)
-	mainGridArea.innerHTML = '';
-	leftPanel.innerHTML = '';
-	rightPanel.innerHTML = '';
+	if (mainGridArea) mainGridArea.innerHTML = '';
+	if (leftPanel) leftPanel.innerHTML = '';
+	if (rightPanel) rightPanel.innerHTML = '';
 
 	switch (screenName) { // 使用傳入的 screenName
 		case 'initialSetup':
-			initialSetupScreen.style.display = 'flex'; // 顯示初始設定畫面
-			renderInitialSetupScreen(initialSetupScreen);
+			if (initialSetupScreen) {
+				initialSetupScreen.style.display = 'flex'; // 顯示初始設定畫面
+				renderInitialSetupScreen(initialSetupScreen);
+			} else {
+				console.error('ui.js: 無法渲染 initialSetup 畫面，因為 #initial-setup-screen 不存在。');
+			}
+			break;
+		case 'studentGrouping': // 新增學生分群設定畫面
+			if (studentGroupingScreen) {
+				studentGroupingScreen.style.display = 'flex';
+				renderStudentGroupingScreen(studentGroupingScreen);
+			} else {
+				console.error('ui.js: 無法渲染 studentGrouping 畫面，因為 #student-grouping-screen 不存在。');
+			}
 			break;
 		case 'seatConfig':
-			mainGridArea.style.display = 'grid'; // 顯示網格
-			leftPanel.style.display = 'block';
-			rightPanel.style.display = 'block';
-			renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel);
+			if (mainGridArea && leftPanel && rightPanel) {
+				mainGridArea.style.display = 'grid'; // 顯示網格
+				leftPanel.style.display = 'block';
+				rightPanel.style.display = 'block';
+				renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel);
+			} else {
+				console.error('ui.js: 無法渲染 seatConfig 畫面，缺少必要的 DOM 元素。');
+			}
 			break;
 		case 'groupingSetup':
-			mainGridArea.style.display = 'grid'; // 顯示網格
-			leftPanel.style.display = 'block';
-			rightPanel.style.display = 'block';
-			renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel);
+			if (mainGridArea && leftPanel && rightPanel) {
+				mainGridArea.style.display = 'grid'; // 顯示網格
+				leftPanel.style.display = 'block';
+				rightPanel.style.display = 'block';
+				renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel);
+			} else {
+				console.error('ui.js: 無法渲染 groupingSetup 畫面，缺少必要的 DOM 元素。');
+			}
 			break;
 		case 'assignment':
-			mainGridArea.style.display = 'grid'; // 顯示網格
-			leftPanel.style.display = 'block';
-			rightPanel.style.display = 'block';
-			renderAssignmentScreen(mainGridArea, leftPanel, rightPanel);
+			if (mainGridArea && leftPanel && rightPanel) {
+				mainGridArea.style.display = 'grid'; // 顯示網格
+				leftPanel.style.display = 'block';
+				rightPanel.style.display = 'block';
+				renderAssignmentScreen(mainGridArea, leftPanel, rightPanel);
+			} else {
+				console.error('ui.js: 無法渲染 assignment 畫面，缺少必要的 DOM 元素。');
+			}
 			break;
+		default:
+			console.warn(`ui.js: 未知的畫面名稱: ${screenName}`);
 	}
 }
 
 // 渲染初始設定畫面
 function renderInitialSetupScreen(initialSetupScreen) {
+	if (!initialSetupScreen) {
+		console.error('ui.js: renderInitialSetupScreen 函數需要一個有效的 initialSetupScreen 元素。');
+		return;
+	}
+
 	initialSetupScreen.innerHTML = `
 	       <div class="control-section">
 	           <h3>班級學生設定</h3>
@@ -89,7 +142,10 @@ function renderInitialSetupScreen(initialSetupScreen) {
 	               <label for="student-ids-input">學生座號 (逗號分隔或範圍，例如: 1, 3-7, 9-12, 14-36):</label>
 	               <input type="text" id="student-ids-input" placeholder="例如: 1-35" value="${appState.studentIds.join(', ')}">
 	           </div>
-	           <button class="button" id="start-seat-config-button">開始座位配置</button>
+	           <div class="button-group">
+	               <button class="button" id="start-grouping-button">開始學生分群</button>
+	               <button class="button" id="skip-grouping-button">跳過分群，直接座位配置</button>
+	           </div>
 	           <div class="control-section" style="margin-top: 20px;">
 	               <h3>設定檔操作</h3>
 	               <input type="file" id="upload-config-input" accept=".json" style="display: none;">
@@ -98,54 +154,191 @@ function renderInitialSetupScreen(initialSetupScreen) {
 	       </div>
 	   `;
 
-	document.getElementById('start-seat-config-button').addEventListener('click', () => {
-		const studentCountInput = document.getElementById('student-count-input');
-		const studentIdsInput = document.getElementById('student-ids-input');
+	const startGroupingButton = document.getElementById('start-grouping-button');
+	const skipGroupingButton = document.getElementById('skip-grouping-button');
+	const uploadConfigButton = document.getElementById('upload-config-button');
+	const uploadConfigInput = document.getElementById('upload-config-input');
 
-		const newStudentCount = parseInt(studentCountInput.value);
-		const studentIdsString = studentIdsInput.value.trim();
+	if (startGroupingButton) {
+		startGroupingButton.addEventListener('click', () => {
+			const studentCountInput = document.getElementById('student-count-input');
+			const studentIdsInput = document.getElementById('student-ids-input');
 
-		if (isNaN(newStudentCount) || newStudentCount <= 0) {
-			alert('請輸入有效的班級總人數！');
-			return;
-		}
+			if (!studentCountInput) {
+				console.error('ui.js: 找不到 DOM 元素 #student-count-input');
+				alert('初始化錯誤：找不到學生人數輸入框。');
+				return;
+			}
+			if (!studentIdsInput) {
+				console.error('ui.js: 找不到 DOM 元素 #student-ids-input');
+				alert('初始化錯誤：找不到學生座號輸入框。');
+				return;
+			}
 
-		const parsedStudentIds = parseStudentIdsString(studentIdsString); // 使用輔助函數
+			const newStudentCount = parseInt(studentCountInput.value);
+			const studentIdsString = studentIdsInput.value.trim();
 
-		if (parsedStudentIds.length === 0) {
-			alert('請輸入有效的學生座號！');
-			return;
-		}
+			if (isNaN(newStudentCount) || newStudentCount <= 0) {
+				alert('請輸入有效的班級總人數！');
+				return;
+			}
 
-		appState.studentIds = parsedStudentIds; // 更新 appState 中的學生座號列表
-		appState.studentCount = parsedStudentIds.length; // 確保 studentCount 反映 studentIds 的實際數量
+			const parsedStudentIds = parseStudentIdsString(studentIdsString); // 使用輔助函數
 
-		// 驗證 studentCount 和 studentIds 的一致性
-		if (newStudentCount !== appState.studentCount) {
-			alert(`班級總人數 (${newStudentCount}) 與解析出的學生座號數量 (${appState.studentCount}) 不符。請重新輸入。`);
-			return; // 阻止進入下一個畫面
-		}
+			if (parsedStudentIds.length === 0) {
+				alert('請輸入有效的學生座號！');
+				return;
+			}
 
-		// 初始化座位網格 (如果尚未初始化或需要重置)
-		if (appState.seats.length === 0 || appState.seats[0].length === 0) {
-			initializeSeats(9, 9); // 預設 9x9
-		} else {
-			// 如果已經有座位，重置有效座位數
-			appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
-		}
+			appState.studentIds = parsedStudentIds; // 更新 appState 中的學生座號列表
+			appState.studentCount = parsedStudentIds.length; // 確保 studentCount 反映 studentIds 的實際數量
 
-		renderScreen('seatConfig'); // 進入座位配置畫面
-	});
+			// 驗證 studentCount 和 studentIds 的一致性
+			if (newStudentCount !== appState.studentCount) {
+				alert(`班級總人數 (${newStudentCount}) 與解析出的學生座號數量 (${appState.studentCount}) 不符。請重新輸入。`);
+				return; // 阻止進入下一個畫面
+			}
 
-	document.getElementById('upload-config-button').addEventListener('click', () => document.getElementById('upload-config-input').click());
-	document.getElementById('upload-config-input').addEventListener('change', uploadConfig);
+			// 初始化座位網格 (如果尚未初始化或需要重置)
+			if (appState.seats.length === 0 || appState.seats[0].length === 0) {
+				initializeSeats(9, 9); // 預設 9x9
+			} else {
+				// 如果已經有座位，重置有效座位數
+				appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
+			}
+
+			renderScreen('studentGrouping'); // 進入學生分群設定畫面
+		});
+	}
+
+	if (skipGroupingButton) {
+		skipGroupingButton.addEventListener('click', () => {
+			const studentCountInput = document.getElementById('student-count-input');
+			const studentIdsInput = document.getElementById('student-ids-input');
+
+			if (!studentCountInput) {
+				console.error('ui.js: 找不到 DOM 元素 #student-count-input');
+				alert('初始化錯誤：找不到學生人數輸入框。');
+				return;
+			}
+			if (!studentIdsInput) {
+				console.error('ui.js: 找不到 DOM 元素 #student-ids-input');
+				alert('初始化錯誤：找不到學生座號輸入框。');
+				return;
+			}
+
+			const newStudentCount = parseInt(studentCountInput.value);
+			const studentIdsString = studentIdsInput.value.trim();
+
+			if (isNaN(newStudentCount) || newStudentCount <= 0) {
+				alert('請輸入有效的班級總人數！');
+				return;
+			}
+
+			const parsedStudentIds = parseStudentIdsString(studentIdsString); // 使用輔助函數
+
+			if (parsedStudentIds.length === 0) {
+				alert('請輸入有效的學生座號！');
+				return;
+			}
+
+			appState.studentIds = parsedStudentIds; // 更新 appState 中的學生座號列表
+			appState.studentCount = parsedStudentIds.length; // 確保 studentCount 反映 studentIds 的實際數量
+
+			// 驗證 studentCount 和 studentIds 的一致性
+			if (newStudentCount !== appState.studentCount) {
+				alert(`班級總人數 (${newStudentCount}) 與解析出的學生座號數量 (${appState.studentCount}) 不符。請重新輸入。`);
+				return; // 阻止進入下一個畫面
+			}
+
+			// 初始化座位網格 (如果尚未初始化或需要重置)
+			if (appState.seats.length === 0 || appState.seats[0].length === 0) {
+				initializeSeats(9, 9); // 預設 9x9
+			} else {
+				// 如果已經有座位，重置有效座位數
+				appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
+			}
+
+			renderScreen('seatConfig'); // 直接進入座位配置畫面
+		});
+	}
+
+	if (uploadConfigButton && uploadConfigInput) {
+		uploadConfigButton.addEventListener('click', () => uploadConfigInput.click());
+		uploadConfigInput.addEventListener('change', uploadConfig);
+	}
+}
+
+// 渲染學生分群設定畫面
+function renderStudentGroupingScreen(studentGroupingScreen) {
+	studentGroupingScreen.innerHTML = `
+        <div class="control-section">
+            <h3>學生分群設定</h3>
+            <div class="input-group">
+                <label for="group-name-input-student">群組名稱:</label>
+                <input type="text" id="group-name-input-student" placeholder="例如: 矮個子學生">
+            </div>
+            <div class="input-group">
+                <label for="student-ids-input-group">學生座號 (逗號分隔或範圍，例如: 1, 3-7, 9-12):</label>
+                <input type="text" id="student-ids-input-group" placeholder="例如: 1, 3-5">
+            </div>
+            <div class="button-group">
+                <button class="button" id="add-student-group-button">新增/更新群組</button>
+                <button class="button" id="delete-student-group-button">刪除群組</button>
+            </div>
+            <h4>已定義學生群組:</h4>
+            <ul id="student-group-list">
+                <!-- 已定義的學生群組將在此處顯示 -->
+            </ul>
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="button" id="save-and-continue-button">儲存並繼續</button>
+                <button class="button" id="skip-student-grouping-button">跳過</button>
+            </div>
+        </div>
+    `;
+
+	// 渲染已定義的學生群組列表
+	updateStudentGroupList();
+
+	// 添加事件監聽器
+	document.getElementById('add-student-group-button').addEventListener('click', handleAddStudentGroup);
+	document.getElementById('delete-student-group-button').addEventListener('click', handleDeleteStudentGroup);
+	document.getElementById('save-and-continue-button').addEventListener('click', () => renderScreen('seatConfig'));
+	document.getElementById('skip-student-grouping-button').addEventListener('click', () => renderScreen('seatConfig'));
+}
+
+// 輔助函式：更新學生群組列表
+export function updateStudentGroupList() {
+	const studentGroupList = document.getElementById('student-group-list');
+	if (studentGroupList) {
+		studentGroupList.innerHTML = Object.entries(appState.studentGroups)
+			.map(([groupName, studentIds]) => `
+                <li>
+                    <strong>${groupName}:</strong> ${studentIds.join(', ')}
+                    <div class="actions">
+                        <button class="button edit" data-group-name="${groupName}">編輯</button>
+                        <button class="button delete" data-group-name="${groupName}">刪除</button>
+                    </div>
+                </li>
+            `).join('');
+
+		document.querySelectorAll('#student-group-list .edit').forEach(button => {
+			button.addEventListener('click', (event) => {
+				const groupName = event.target.dataset.groupName;
+				const studentIds = appState.studentGroups[groupName];
+				document.getElementById('group-name-input-student').value = groupName;
+				document.getElementById('student-ids-input-group').value = studentIds.join(', ');
+			});
+		});
+
+		document.querySelectorAll('#student-group-list .delete').forEach(button => {
+			button.addEventListener('click', handleDeleteStudentGroup);
+		});
+	}
 }
 
 // 渲染座位佈局設定畫面
 function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
-	console.log('--- renderSeatConfigScreen 渲染時狀態 ---');
-	console.log('appState.studentCount:', appState.studentCount);
-	console.log('appState.selectedValidSeatsCount:', appState.selectedValidSeatsCount);
 
 	// 中央座位網格
 	let seatGridHtml = `
@@ -217,6 +410,10 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
 					// 根據群組ID添加群組顏色類別
 					seatClass = `group-${seat.groupId.replace(/\s/g, '-')}`; // 將空格替換為連字號，以符合CSS類名
 					seatContent = seat.groupId; // 顯示群組名稱
+					// 如果有綁定學生群組，也顯示出來
+					if (appState.groupSeatAssignments[seat.groupId]) {
+						seatContent += `<br>(${appState.groupSeatAssignments[seat.groupId]})`;
+					}
 				} else {
 					seatClass = 'is-valid-dark'; // 有效座位但未分群顯示深灰色
 				}
@@ -255,7 +452,23 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
             </div>
             <h4>已定義群組:</h4>
             <ul id="group-list">
-                ${appState.groups.map(g => `<li>${g} <button class="button delete" data-group="${g}">刪除</button></li>`).join('')}
+                ${appState.groups.map(g => `
+                    <li>
+                        ${g}
+                        ${appState.groupSeatAssignments[g] ? `(綁定學生群組: ${appState.groupSeatAssignments[g]})` : ''}
+                        <div class="actions">
+                            <select class="student-group-assign-select" data-group-id="${g}">
+                                <option value="">-- 綁定學生群組 --</option>
+                                ${Object.keys(appState.studentGroups).map(sgName => `
+                                    <option value="${sgName}" ${appState.groupSeatAssignments[g] === sgName ? 'selected' : ''}>
+                                        ${sgName}
+                                    </option>
+                                `).join('')}
+                            </select>
+                            <button class="button delete" data-group="${g}">刪除</button>
+                        </div>
+                    </li>
+                `).join('')}
             </ul>
         </div>
         <button class="button" id="back-to-seat-config-button">返回座位配置</button>
@@ -284,16 +497,14 @@ function renderGroupingSetupScreen(mainGridArea, leftPanel, rightPanel) {
 	document.querySelectorAll('#group-list .delete').forEach(button => {
 		button.addEventListener('click', handleDeleteGroup);
 	});
+	document.querySelectorAll('.student-group-assign-select').forEach(select => {
+		select.addEventListener('change', handleAssignStudentGroupToSeatGroup);
+	});
 	document.getElementById('next-to-assignment-button').addEventListener('click', () => renderScreen('assignment'));
 }
 
 // 渲染座位安排條件設定畫面
 function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
-	console.log('--- renderAssignmentScreen 渲染時狀態 ---');
-	console.log('appState.studentCount:', appState.studentCount);
-	console.log('appState.studentIds.length:', appState.studentIds.length);
-	console.log('appState.selectedValidSeatsCount:', appState.selectedValidSeatsCount);
-	console.log('appState.seats (部分):', appState.seats.slice(0, 2)); // 顯示前兩行座位數據
 
 	// 中央座位網格 (顯示已分配的學生)
 	let seatGridHtml = `
@@ -392,15 +603,9 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
 		startButton.textContent = '安排中...'; // 顯示載入訊息
 		unassignedListElement.innerHTML = '<li>安排中，請稍候...</li>'; // 清空並顯示載入訊息
 
-		try {
-			await startAssignment(); // 等待安排完成
-		} catch (error) {
-			console.error('座位安排過程中發生錯誤:', error);
-			alert('座位安排過程中發生錯誤，請檢查控制台。');
-		} finally {
-			startButton.disabled = false; // 重新啟用按鈕
-			startButton.textContent = '開始安排'; // 恢復按鈕文字
-		}
+		await startAssignment(); // 等待安排完成
+		startButton.disabled = false; // 重新啟用按鈕
+		startButton.textContent = '開始安排'; // 恢復按鈕文字
 	});
 	document.getElementById('download-config-button-assignment').addEventListener('click', downloadConfig); // 新增下載按鈕事件
 	document.getElementById('back-to-grouping-button').addEventListener('click', () => renderScreen('groupingSetup'));
@@ -425,9 +630,28 @@ export function updateControlPanel() {
 	// 更新已定義群組列表 (適用於分群設定畫面)
 	const groupList = document.getElementById('group-list');
 	if (groupList) {
-		groupList.innerHTML = appState.groups.map(g => `<li>${g} <button class="button delete" data-group="${g}">刪除</button></li>`).join('');
+		groupList.innerHTML = appState.groups.map(g => `
+	           <li>
+	               ${g}
+	               ${appState.groupSeatAssignments[g] ? `(綁定學生群組: ${appState.groupSeatAssignments[g]})` : ''}
+	               <div class="actions">
+	                   <select class="student-group-assign-select" data-group-id="${g}">
+	                       <option value="">-- 綁定學生群組 --</option>
+	                       ${Object.keys(appState.studentGroups).map(sgName => `
+	                           <option value="${sgName}" ${appState.groupSeatAssignments[g] === sgName ? 'selected' : ''}>
+	                               ${sgName}
+	                           </option>
+	                       `).join('')}
+	                   </select>
+	                   <button class="button delete" data-group="${g}">刪除</button>
+	               </div>
+	           </li>
+	       `).join('');
 		document.querySelectorAll('#group-list .delete').forEach(button => {
 			button.addEventListener('click', handleDeleteGroup);
+		});
+		document.querySelectorAll('.student-group-assign-select').forEach(select => {
+			select.addEventListener('change', handleAssignStudentGroupToSeatGroup);
 		});
 	}
 
@@ -452,6 +676,9 @@ export function updateControlPanel() {
 	if (selectedSeatsCountSpan) {
 		selectedSeatsCountSpan.textContent = appState.selectedValidSeatsCount;
 	}
+
+	// 更新學生群組列表 (適用於學生分群設定畫面)
+	updateStudentGroupList();
 }
 
 // 輔助函式：獲取條件描述

@@ -4,6 +4,8 @@ export let appState = {
 	currentScreen: 'initialSetup', // 初始畫面為 'initialSetup'
 	seats: [],                   // 7x7 的 Seat 對象陣列
 	groups: [],                  // 字符串陣列，例如: ['第一組', '第二組']
+	studentGroups: {},           // 新增：用於儲存學生群組，例如 { "矮個子學生": [1, 3, 5], "高個子學生": [2, 4, 6] }
+	groupSeatAssignments: {},    // 新增：用於儲存學生群組與座位分群的綁定關係，例如 { "front_row_group_id": "矮個子學生", "back_row_group_id": "高個子學生" }
 	conditions: [],              // Condition 對象陣列
 	studentCount: 0,             // 學生人數，由使用者設定
 	studentIds: [],              // 學生座號列表，例如: [1, 3, 4, ..., 36]

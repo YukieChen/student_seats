@@ -127,11 +127,26 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 		return true; // 所有學生都已成功分配
 	}
 
-	// 學生排序啟發式：優先處理有相鄰條件且其相鄰學生已放置的學生
-	// 這裡我們直接操作 studentsToAssign，因為它現在是動態變化的
+	// 學生排序啟發式：
+	// 1. 優先處理有指定座位群組的學生
+	// 2. 其次處理有相鄰條件且其相鄰學生已放置的學生
 	studentsToAssign.sort((sA, sB) => {
 		let scoreA = 0;
 		let scoreB = 0;
+
+		// 優先級 1: 學生是否綁定到特定座位群組
+		const studentGroupA = Object.values(appState.groupSeatAssignments).find(sgName => appState.studentGroups[sgName] && appState.studentGroups[sgName].includes(sA));
+		const studentGroupB = Object.values(appState.groupSeatAssignments).find(sgName => appState.studentGroups[sgName] && appState.studentGroups[sgName].includes(sB));
+
+		if (studentGroupA && !studentGroupB) {
+			return -1; // A 有綁定，B 沒有，A 優先
+		}
+		if (!studentGroupA && studentGroupB) {
+			return 1; // B 有綁定，A 沒有，B 優先
+		}
+		// 如果都有或都沒有綁定，則進入下一個優先級判斷
+
+		// 優先級 2: 處理有相鄰條件且其相鄰學生已放置的學生
 
 		const conditionsA = studentToConditionsMap.get(sA) || [];
 		for (const condition of conditionsA) {
@@ -160,14 +175,32 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 	const currentStudent = studentsToAssign[0]; // 選擇排序後的第一個學生
 	console.log(`[DEBUG] 嘗試為學生 ${currentStudent} (剩餘學生數: ${studentsToAssign.length}) 尋找座位...`);
 
-	// 座位排序啟發式：優先考慮能滿足最多條件的座位
-	// 這裡根據每個座位滿足當前學生相關條件的能力進行評分
+	// 座位排序啟發式：
+	// 1. 優先考慮與學生綁定群組相符的座位
+	// 2. 其次考慮能滿足最多條件的座位
 	const scoredAvailableSeats = availableSeats
 		.filter(seat => seat.studentId === undefined) // 只考慮未被佔用的座位
 		.map(seat => {
 			let score = 0;
 			const tempAssignment = new Map(currentAssignment);
 			tempAssignment.set(currentStudent, seat);
+
+			// 優先級 1: 檢查座位是否屬於學生綁定的座位群組
+			const studentGroupForCurrentStudent = Object.values(appState.groupSeatAssignments).find(sgName => appState.studentGroups[sgName] && appState.studentGroups[sgName].includes(currentStudent));
+			if (studentGroupForCurrentStudent) {
+				// 找到學生所屬的學生群組，現在檢查該學生群組是否綁定到當前座位所屬的座位群組
+				const boundSeatGroup = Object.keys(appState.groupSeatAssignments).find(seatGroupId => appState.groupSeatAssignments[seatGroupId] === studentGroupForCurrentStudent);
+				if (boundSeatGroup && seat.groupId === boundSeatGroup) {
+					score += 100000; // 給予極高的分數，優先考慮綁定座位
+					console.log(`[DEBUG] 學生 ${currentStudent} 綁定到學生群組 ${studentGroupForCurrentStudent}，該群組綁定到座位群組 ${boundSeatGroup}。座位 (${seat.row}, ${seat.col}) 屬於 ${seat.groupId}。匹配成功，給予高分。`);
+				} else if (boundSeatGroup && seat.groupId !== boundSeatGroup) {
+					score -= 10000; // 如果學生有綁定群組，但座位不屬於該群組，則給予負分，降低優先級
+					console.log(`[DEBUG] 學生 ${currentStudent} 綁定到學生群組 ${studentGroupForCurrentStudent}，該群組綁定到座位群組 ${boundSeatGroup}。座位 (${seat.row}, ${seat.col}) 屬於 ${seat.groupId}。不匹配，給予負分。`);
+				}
+			}
+			// 如果學生沒有綁定學生群組，或者學生群組沒有綁定座位群組，則不影響此分數
+
+			// 優先級 2: 滿足條件的數量
 
 			const relevantConditions = studentToConditionsMap.get(currentStudent) || [];
 			for (const condition of relevantConditions) {
@@ -230,10 +263,14 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 	// 如果所有座位都嘗試過且都失敗，則嘗試回溯並重新安排
 	console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位。嘗試回溯並重新安排...`);
 
-	// 收集所有已分配且沒有 assign_group 約束的學生，按分配順序倒序排列
+	// 收集所有已分配且沒有 assign_group 約束或學生群組綁定約束的學生，按分配順序倒序排列
 	const candidatesToRearrange = Array.from(currentAssignment.keys())
 		.reverse() // 從最近分配的學生開始考慮
-		.filter(studentId => !studentHasAssignGroupCondition.get(studentId));
+		.filter(studentId => {
+			const hasAssignGroupCondition = studentHasAssignGroupCondition.get(studentId);
+			const hasStudentGroupBinding = Object.values(appState.groupSeatAssignments).some(sgName => appState.studentGroups[sgName] && appState.studentGroups[sgName].includes(studentId));
+			return !hasAssignGroupCondition && !hasStudentGroupBinding;
+		});
 
 	for (const studentToRearrange of candidatesToRearrange) {
 		// 超時檢查

@@ -49,6 +49,41 @@ h1 {
 	background-color: #f9f9f9;
 }
 
+/* 學生分群設定容器 */
+.student-grouping-container {
+	flex: 1;
+	padding: 20px;
+	border: 1px solid #eee;
+	border-radius: 8px;
+	background-color: #f9f9f9;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 300px;
+	/* 確保有足夠高度 */
+}
+
+/* 初始設定畫面容器 */
+.initial-setup-container {
+	flex: 1;
+	/* 讓它佔據可用空間 */
+	padding: 20px;
+	border: 1px solid #eee;
+	border-radius: 8px;
+	background-color: #f9f9f9;
+	display: flex;
+	/* 使用 Flexbox 佈局 */
+	flex-direction: column;
+	/* 垂直排列子元素 */
+	align-items: center;
+	/* 水平居中 */
+	justify-content: center;
+	/* 垂直居中 */
+	min-height: 300px;
+	/* 確保有足夠高度 */
+}
+
 /* 中央座位網格容器 */
 .seat-grid-container {
 	flex: 1;
@@ -217,6 +252,61 @@ h1 {
 	padding: 8px;
 	border: 1px solid #ccc;
 	border-radius: 4px;
+}
+
+/* 按鈕組樣式 */
+.button-group {
+	display: flex;
+	gap: 10px;
+	margin-top: 10px;
+	flex-wrap: wrap;
+	/* 允許按鈕換行 */
+}
+
+/* 學生群組列表樣式 */
+#student-group-list {
+	list-style: none;
+	padding: 0;
+	width: 100%;
+}
+
+#student-group-list li {
+	background-color: #e9ecef;
+	padding: 10px;
+	margin-bottom: 8px;
+	border-radius: 5px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	/* 允許內容換行 */
+}
+
+#student-group-list li strong {
+	margin-right: 10px;
+	color: #0056b3;
+}
+
+#student-group-list li .actions {
+	display: flex;
+	gap: 5px;
+	margin-top: 5px;
+	/* 在小螢幕上，按鈕可能換行，增加上方間距 */
+}
+
+#student-group-list li .actions .button {
+	padding: 5px 10px;
+	font-size: 12px;
+}
+
+#student-group-list li .actions .button.edit {
+	background-color: #ffc107;
+	/* 警告色 */
+}
+
+#student-group-list li .actions .button.delete {
+	background-color: #dc3545;
+	/* 危險色 */
 }
 
 .condition-list {

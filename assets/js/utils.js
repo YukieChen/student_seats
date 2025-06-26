@@ -80,6 +80,8 @@ export function downloadConfig() {
 			// studentId 和 isTempSelectedForGrouping 不儲存，因為是安排結果或臨時狀態
 		}))),
 		groups: appState.groups,
+		studentGroups: appState.studentGroups, // 新增學生分群資料
+		groupSeatAssignments: appState.groupSeatAssignments, // 新增學生群組與座位分群綁定資料
 		conditions: appState.conditions
 	};
 	const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
@@ -141,6 +143,20 @@ export function uploadConfig(event) {
 					appState.groups = [];
 				}
 
+				// 載入學生分群資料
+				if (loadedConfig.studentGroups && typeof loadedConfig.studentGroups === 'object' && !Array.isArray(loadedConfig.studentGroups)) {
+					appState.studentGroups = loadedConfig.studentGroups;
+				} else {
+					appState.studentGroups = {};
+				}
+
+				// 載入學生群組與座位分群綁定資料
+				if (loadedConfig.groupSeatAssignments && typeof loadedConfig.groupSeatAssignments === 'object' && !Array.isArray(loadedConfig.groupSeatAssignments)) {
+					appState.groupSeatAssignments = loadedConfig.groupSeatAssignments;
+				} else {
+					appState.groupSeatAssignments = {};
+				}
+
 				// 載入條件
 				if (loadedConfig.conditions && Array.isArray(loadedConfig.conditions)) {
 					// 確保載入的 conditions.students 格式正確 (number[][])
@@ -166,8 +182,8 @@ export function uploadConfig(event) {
 					console.log('跳轉到: assignment');
 					renderScreen('assignment'); // 如果有學生和座位，直接跳到安排畫面
 				} else if (appState.studentCount > 0 && appState.studentIds.length > 0) {
-					console.log('跳轉到: seatConfig');
-					renderScreen('seatConfig'); // 如果有學生但沒座位，跳到座位配置
+					console.log('跳轉到: studentGrouping'); // 如果有學生但沒座位，跳到學生分群設定
+					renderScreen('studentGrouping');
 				} else {
 					console.log('跳轉到: initialSetup');
 					renderScreen('initialSetup'); // 如果沒有學生數據，回到初始設定
@@ -179,4 +195,10 @@ export function uploadConfig(event) {
 		};
 		reader.readAsText(file);
 	}
+}
+// 輔助函式：解析學生 ID 字串 (已確認導出)
+export function parseStudentIdsString(studentIdsString) {
+	return studentIdsString.split(',')
+		.map(s => parseInt(s.trim()))
+		.filter(id => !isNaN(id) && appState.studentIds.includes(id));
 }
