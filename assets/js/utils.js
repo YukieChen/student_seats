@@ -95,26 +95,35 @@ export function downloadConfig() {
 
 // 上傳設定
 export function uploadConfig(event) {
+	console.log("uploadConfig 函數被調用");
 	const file = event.target.files[0];
 	if (file) {
 		const reader = new FileReader();
 		reader.onload = (e) => {
 			try {
-				const loadedConfig = JSON.parse(e.target.result);
+				const fileContent = e.target.result;
+				console.log("檔案內容:", fileContent);
+				const loadedConfig = JSON.parse(fileContent);
+				console.log("解析後的設定:", loadedConfig);
 				// 載入學生人數和座號
 				if (typeof loadedConfig.studentCount === 'number' && loadedConfig.studentCount >= 0) {
+					console.log("loadedConfig.studentCount 是一個有效的數字");
 					appState.studentCount = loadedConfig.studentCount;
 				} else {
+					console.log("loadedConfig.studentCount 不是一個有效的數字");
 					appState.studentCount = 0;
 				}
 				if (loadedConfig.studentIds && Array.isArray(loadedConfig.studentIds)) {
+					console.log("loadedConfig.studentIds 是一個有效的陣列");
 					appState.studentIds = loadedConfig.studentIds;
 				} else {
+					console.log("loadedConfig.studentIds 不是一個有效的陣列");
 					appState.studentIds = [];
 				}
 
 				// 載入座位佈局
 				if (loadedConfig.seats && Array.isArray(loadedConfig.seats) && loadedConfig.seats.length > 0) { // 允許非 7x7
+					console.log("loadedConfig.seats 是一個有效的陣列");
 					// 重新初始化座位網格以匹配載入的尺寸
 					const rows = loadedConfig.seats.length;
 					const cols = loadedConfig.seats[0].length;
@@ -138,27 +147,34 @@ export function uploadConfig(event) {
 
 				// 載入群組
 				if (loadedConfig.groups && Array.isArray(loadedConfig.groups)) {
+					console.log("loadedConfig.groups 是一個有效的陣列");
 					appState.groups = loadedConfig.groups;
 				} else {
+					console.log("loadedConfig.groups 不是一個有效的陣列");
 					appState.groups = [];
 				}
 
 				// 載入學生分群資料
 				if (loadedConfig.studentGroups && typeof loadedConfig.studentGroups === 'object' && !Array.isArray(loadedConfig.studentGroups)) {
+					console.log("loadedConfig.studentGroups 是一個有效的物件");
 					appState.studentGroups = loadedConfig.studentGroups;
 				} else {
+					console.log("loadedConfig.studentGroups 不是一個有效的物件");
 					appState.studentGroups = {};
 				}
 
 				// 載入學生群組與座位分群綁定資料
 				if (loadedConfig.groupSeatAssignments && typeof loadedConfig.groupSeatAssignments === 'object' && !Array.isArray(loadedConfig.groupSeatAssignments)) {
+					console.log("loadedConfig.groupSeatAssignments 是一個有效的物件");
 					appState.groupSeatAssignments = loadedConfig.groupSeatAssignments;
 				} else {
+					console.log("loadedConfig.groupSeatAssignments 不是一個有效的物件");
 					appState.groupSeatAssignments = {};
 				}
 
 				// 載入條件
 				if (loadedConfig.conditions && Array.isArray(loadedConfig.conditions)) {
+					console.log("loadedConfig.conditions 是一個有效的陣列");
 					// 確保載入的 conditions.students 格式正確 (number[][])
 					appState.conditions = loadedConfig.conditions.map(c => new Condition(
 						c.id,
@@ -191,6 +207,8 @@ export function uploadConfig(event) {
 			} catch (error) {
 				alert('載入設定檔失敗：' + error.message);
 				console.error('載入設定檔錯誤:', error);
+				console.log("錯誤訊息:", error.message);
+				console.log("錯誤堆疊:", error.stack);
 			}
 		};
 		reader.readAsText(file);

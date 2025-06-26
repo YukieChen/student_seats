@@ -131,10 +131,15 @@ export async function startAssignment() {
 	}
 
 	console.log(`[DEBUG] startAssignment 結束時的 unassignedStudents:`, unassignedStudents);
+	// 將未安排學生列表更新到 appState
+	console.log("[DEBUG] startAssignment 結束時的 unassignedStudents:", Array.from(unassignedStudents));
+	appState.unassignedStudents = Array.from(unassignedStudents);
+	console.log("[DEBUG] Final unassigned students (after assignment to appState):", appState.unassignedStudents);
+
 	// 更新未安排學生清單
 	const unassignedListElement = document.getElementById('unassigned-students-list');
 	if (unassignedListElement) {
-		unassignedListElement.innerHTML = Array.from(unassignedStudents).sort((a, b) => a - b).map(s => `<li>${s}</li>`).join('');
+		unassignedListElement.innerHTML = appState.unassignedStudents.sort((a, b) => a - b).map(s => `<li>${s}</li>`).join('');
 	}
 
 	renderScreen('assignment'); // 重新渲染安排結果畫面
@@ -268,79 +273,40 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 		currentAssignment.delete(currentStudent);
 	}
 
-	// 如果所有座位都嘗試過且都失敗，則嘗試回溯並重新安排
-	console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位。嘗試回溯並重新安排...`);
+	// 如果所有座位都嘗試過且都失敗
+	console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位。將其標記為未安排並嘗試處理下一個學生。`);
+	unassignedStudentsResult.add(currentStudent); // 將當前學生標記為未安排
 
-	// 收集所有已分配且沒有 assign_group 約束或學生群組綁定約束的學生，按分配順序倒序排列
-	const candidatesToRearrange = Array.from(currentAssignment.keys())
-		.reverse() // 從最近分配的學生開始考慮
-		.filter(studentId => {
-			const hasAssignGroupCondition = studentHasAssignGroupCondition.get(studentId);
-			const hasStudentGroupBinding = Object.values(appState.groupSeatAssignments).some(sgName => appState.studentGroups[sgName] && appState.studentGroups[sgName].includes(studentId));
-			return !hasAssignGroupCondition && !hasStudentGroupBinding;
-		});
-
-	for (const studentToRearrange of candidatesToRearrange) {
-		// 超時檢查
-		if (Date.now() - startTime > TIMEOUT_MS) {
-			console.warn(`[DEBUG] 超時觸發！停止搜尋。將剩餘學生添加到未安排列表。`);
-			// 將所有剩餘學生添加到未安排列表
-			studentsToAssign.forEach(s => {
-				unassignedStudentsResult.add(s); // 使用 add
-			});
-			return false;
-		}
-
-		const originalSeat = currentAssignment.get(studentToRearrange);
-		if (!originalSeat) continue; // 應該不會發生，但以防萬一
-
-		// 撤銷該學生的分配
-		originalSeat.studentId = undefined;
-		currentAssignment.delete(studentToRearrange);
-		console.log(`[DEBUG] 回溯：為了解決學生 ${currentStudent} 的放置問題，暫時撤銷學生 ${studentToRearrange} (原座位: R${originalSeat.row}C${originalSeat.col}) 的分配。`);
-
-		// 將被撤銷的學生重新加入待分配列表的開頭，以確保它在後續被重新處理
-		const studentsAfterRearrange = [studentToRearrange, ...studentsToAssign];
-
-		// 嘗試為當前學生 (currentStudent) 找到座位
-		// 注意：這裡我們將 currentStudent 放在 studentsToAssign 的最前面，確保它優先被處理
-		const nextStudentsToAssign = [currentStudent, studentToRearrange, ...studentsToAssign.filter(s => s !== currentStudent && s !== studentToRearrange)];
-
-		// 遞迴調用 solveAssignment，嘗試解決當前學生和被撤銷學生的問題
-		if (await solveAssignment(nextStudentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, startTime, TIMEOUT_MS)) {
-			return true; // 找到一個完整解
-		}
-
-		// 如果遞迴調用失敗，回溯：恢復被撤銷學生的原始分配
-		originalSeat.studentId = studentToRearrange;
-		currentAssignment.set(studentToRearrange, originalSeat);
-		console.log(`[DEBUG] 回溯失敗：恢復學生 ${studentToRearrange} 到原座位 (R${originalSeat.row}C${originalSeat.col})。`);
-	}
-
-	// 如果所有回溯和重新安排的嘗試都失敗，且當前學生沒有指定座約束，則將其標記為未安排
-	// 如果所有回溯和重新安排的嘗試都失敗，則將當前學生標記為未安排
-	console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位。將其標記為未安排。`);
-	unassignedStudentsResult.add(currentStudent); // 使用 add，Set 會自動處理重複
-	console.log(`[DEBUG] 學生 ${currentStudent} 被添加到 unassignedStudentsResult:`, unassignedStudentsResult);
-	// 從待分配學生列表中移除當前學生
+	// 嘗試遞迴調用 solveAssignment 來安排下一個學生
 	const nextStudentsToAssign = studentsToAssign.filter(s => s !== currentStudent);
-	// 遞迴調用，處理剩餘學生 (這裡的遞迴是為了確保即使當前學生被跳過，後續學生也能被處理)
 	if (await solveAssignment(nextStudentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, startTime, TIMEOUT_MS)) {
-		// 只有當找到解時才移除，並且確保該學生確實存在於列表中
-		if (unassignedStudentsResult.has(currentStudent)) { // 檢查是否存在
-			unassignedStudentsResult.delete(currentStudent); // 使用 delete
-			console.log(`[DEBUG] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除 (找到解):`, unassignedStudentsResult);
+		// 如果後續的遞迴成功，則表示找到了部分解決方案
+		// 檢查 currentStudent 是否仍然在 unassignedStudentsResult 中，如果找到解，則將其移除
+		if (unassignedStudentsResult.has(currentStudent)) {
+			// 檢查學生是否已經被安排到座位上
+			let isAssigned = false;
+			appState.seats.forEach(row => {
+				row.forEach(seat => {
+					if (seat.studentId === currentStudent) {
+						isAssigned = true;
+					}
+				});
+			});
+			if (isAssigned) {
+				unassignedStudentsResult.delete(currentStudent);
+				console.log(`[DEBUG] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除 (後續找到解):`, unassignedStudentsResult);
+			} else {
+				console.error(`[ERROR] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除，但沒有被安排到座位上！`);
+			}
 		}
-		return true;
+		return true; // 返回 true，表示此分支已處理完畢，即使有學生未安排
+	} else {
+		// 如果後續的遞迴也失敗，則回溯，並將 currentStudent 從臨時的 unassignedStudents 列表中移除
+		// 這裡不需要移除，因為如果後續失敗，currentStudent 應該保持在 unassignedStudentsResult 中
+		// 並且返回 false，表示此分支無法找到完整解
+		console.log(`[DEBUG] 學生 ${currentStudent} 保持在 unassignedStudentsResult 中 (後續未找到解):`, unassignedStudentsResult);
+		return false; // 返回 false，表示此分支無法找到完整解
 	}
-	// 如果跳過當前學生後仍然沒有找到解，則該學生保持在 unassignedStudentsResult 中
-
-	// 如果所有座位都嘗試過且都失敗，且所有回溯和重新安排的嘗試都失敗，
-	// 則將當前學生標記為未安排，並返回 true，表示此分支已處理完畢。
-	// 這樣可以確保已安排的學生不會被撤銷。
-	console.log(`[DEBUG] 無法為學生 ${currentStudent} 找到合適的座位，且所有嘗試都失敗。將其標記為未安排並結束此分支。`);
-	unassignedStudentsResult.add(currentStudent); // 使用 add
-	return true; // 返回 true，表示此分支已處理完畢，即使有學生未安排
 }
 
 // 輔助函數：檢查單一條件是否滿足

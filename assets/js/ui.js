@@ -592,6 +592,16 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
         </div>
     `;
 
+	console.log("[DEBUG] UI rendering unassigned students (from appState):", appState.unassignedStudents);
+	console.log("[DEBUG] UI rendering unassigned students (from appState):", appState.unassignedStudents);
+	// 在渲染畫面時，根據 appState.unassignedStudents 填充未安排學生列表
+	const unassignedListElement = document.getElementById('unassigned-students-list');
+	if (unassignedListElement && appState.unassignedStudents && appState.unassignedStudents.length > 0) {
+		unassignedListElement.innerHTML = appState.unassignedStudents.sort((a, b) => a - b).map(s => `<li>${s}</li>`).join('');
+	} else if (unassignedListElement) {
+		unassignedListElement.innerHTML = ''; // 如果沒有未安排學生，則清空列表
+	}
+
 	// 添加事件監聽器
 	document.getElementById('start-assignment-button').addEventListener('click', async () => {
 		const startButton = document.getElementById('start-assignment-button');
