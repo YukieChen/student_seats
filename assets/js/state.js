@@ -26,14 +26,12 @@ export class Seat {
 
 // Condition 對象結構
 export class Condition {
-	constructor(id, type, students, group = undefined) {
-		this.id = id;                       // 唯一 ID，用於刪除
-		this.type = type;                   // 條件類型: 'adjacent', 'group_area', 'not_adjacent', 'assign_group', 'adjacent_and_group'
-		this.students = students;           // 學生編號陣列，格式根據 type 變化
-		// 'adjacent', 'not_adjacent': [[s1, s2], [s3, s4]]
-		// 'group_area': [[s1, s2, s3, s4]]
-		// 'assign_group', 'adjacent_and_group': [[s1], [s2]] 或 [[s1, s2]]
-		this.group = group;                 // 僅當 type 為 'assign_group' 或 'adjacent_and_group' 時有效
+	constructor(id, type, students, group = undefined, studentGroupName = undefined) { // 新增 studentGroupName 參數
+		this.id = id;
+		this.type = type;
+		this.students = students;
+		this.group = group;
+		this.studentGroupName = studentGroupName; // 新增：用於儲存學生群組名稱
 	}
 }
 

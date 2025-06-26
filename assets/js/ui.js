@@ -276,7 +276,7 @@ function renderStudentGroupingScreen(studentGroupingScreen) {
             <h3>學生分群設定</h3>
             <div class="input-group">
                 <label for="group-name-input-student">群組名稱:</label>
-                <input type="text" id="group-name-input-student" placeholder="例如: 矮個子學生">
+                <input type="text" id="group-name-input-student" placeholder="例如: 高個子學生">
             </div>
             <div class="input-group">
                 <label for="student-ids-input-group">學生座號 (逗號分隔或範圍，例如: 1, 3-7, 9-12):</label>
@@ -553,16 +553,24 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
                     <option value="not_adjacent">不能坐在一起 (至少隔一人)</option>
                     <option value="assign_group">指定區域</option>
                     <option value="adjacent_and_group">指定區域且坐在一起</option>
+                    <option value="assign_student_group_to_seat_group">學生群組指定區域</option> <!-- 新增選項 -->
                 </select>
             </div>
             <div class="input-group">
                 <label for="condition-students">學生編號 (逗號分隔，例如: (1, 5) 或 (1, 5), (7, 8)):</label>
                 <input type="text" id="condition-students" placeholder="例如: (1, 5)">
             </div>
+            <div class="input-group" id="condition-student-group-input" style="display: none;"> <!-- 新增學生群組選擇器容器 -->
+                <label for="condition-student-group-select">指定學生群組:</label>
+                <select id="condition-student-group-select">
+                    <option value="">-- 選擇學生群組 --</option>
+                    ${Object.keys(appState.studentGroups).map(sgName => `<option value="${sgName}">${sgName}</option>`).join('')}
+                </select>
+            </div>
             <div class="input-group" id="condition-group-input" style="display: none;">
-                <label for="condition-group-select">指定群組:</label>
+                <label for="condition-group-select">指定座位群組:</label> <!-- 可修改描述以更清晰 -->
                 <select id="condition-group-select">
-                    <option value="">-- 選擇群組 --</option>
+                    <option value="">-- 選擇座位群組 --</option>
                     ${appState.groups.map(g => `<option value="${g}">${g}</option>`).join('')}
                 </select>
             </div>
@@ -626,6 +634,14 @@ export function updateControlPanel() {
 		select.innerHTML = '<option value="">-- 選擇群組 --</option>' +
 			appState.groups.map(g => `<option value="${g}" ${g === currentSelected ? 'selected' : ''}>${g}</option>`).join('');
 	});
+
+	// 更新學生群組選擇器 (適用於條件設定畫面)
+	const studentGroupSelect = document.getElementById('condition-student-group-select');
+	if (studentGroupSelect) {
+		const currentSelected = studentGroupSelect.value;
+		studentGroupSelect.innerHTML = '<option value="">-- 選擇學生群組 --</option>' +
+			Object.keys(appState.studentGroups).map(sgName => `<option value="${sgName}" ${sgName === currentSelected ? 'selected' : ''}>${sgName}</option>`).join('');
+	}
 
 	// 更新已定義群組列表 (適用於分群設定畫面)
 	const groupList = document.getElementById('group-list');
@@ -707,6 +723,9 @@ function getConditionDescription(condition) {
 			break;
 		case 'adjacent_and_group':
 			desc = `學生 ${studentsStr} 必須左右相鄰，且兩人都必須在群組 ${condition.group} 的座位`;
+			break;
+		case 'assign_student_group_to_seat_group': // 新增條件類型
+			desc = `學生群組「${condition.studentGroupName}」必須坐在座位群組「${condition.group}」的座位`;
 			break;
 	}
 	return desc;

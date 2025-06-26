@@ -198,7 +198,24 @@ export function uploadConfig(event) {
 }
 // 輔助函式：解析學生 ID 字串 (已確認導出)
 export function parseStudentIdsString(studentIdsString) {
-	return studentIdsString.split(',')
-		.map(s => parseInt(s.trim()))
-		.filter(id => !isNaN(id) && appState.studentIds.includes(id));
+	const studentIds = new Set(); // 使用 Set 避免重複的學生 ID
+	studentIdsString.split(',').forEach(part => {
+		const trimmedPart = part.trim();
+		if (trimmedPart.includes('-')) {
+			const [start, end] = trimmedPart.split('-').map(s => parseInt(s.trim()));
+			if (!isNaN(start) && !isNaN(end) && start <= end) {
+				for (let i = start; i <= end; i++) {
+					if (appState.studentIds.includes(i)) {
+						studentIds.add(i);
+					}
+				}
+			}
+		} else {
+			const id = parseInt(trimmedPart);
+			if (!isNaN(id) && appState.studentIds.includes(id)) {
+				studentIds.add(id);
+			}
+		}
+	});
+	return Array.from(studentIds).sort((a, b) => a - b); // 轉換回陣列並排序
 }

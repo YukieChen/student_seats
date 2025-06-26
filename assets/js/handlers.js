@@ -126,82 +126,121 @@ export function handleAssignStudentGroupToSeatGroup(event) {
 export function handleConditionTypeChange(event) {
 	const conditionType = event.target.value;
 	const conditionGroupInput = document.getElementById('condition-group-input');
+	const conditionStudentGroupInput = document.getElementById('condition-student-group-input'); // 新增
+	const conditionStudentsInput = document.getElementById('condition-students');
 	const conditionStudentsLabel = document.querySelector('label[for="condition-students"]');
 
-	if (conditionType === 'assign_group' || conditionType === 'adjacent_and_group') {
-		conditionGroupInput.style.display = 'block';
-		if (conditionType === 'assign_group') {
-			conditionStudentsLabel.textContent = '學生編號 (逗號分隔，例如: 1 或 (1, 5)):';
-		} else { // adjacent_and_group
-			conditionStudentsLabel.textContent = '學生編號 (逗號分隔，例如: (1, 5)):';
-		}
-	} else if (conditionType === 'adjacent' || conditionType === 'not_adjacent') {
-		conditionGroupInput.style.display = 'none';
-		conditionStudentsLabel.textContent = '學生編號 (逗號分隔，例如: (1, 5), (7, 8)):';
-	} else if (conditionType === 'group_area') {
-		conditionGroupInput.style.display = 'none';
-		conditionStudentsLabel.textContent = '學生編號 (逗號分隔，例如: 1, 2, 3, 4):';
-	} else {
-		conditionGroupInput.style.display = 'none';
-		conditionStudentsLabel.textContent = '學生編號 (逗號分隔):';
+	// 預設隱藏所有相關輸入
+	conditionGroupInput.style.display = 'none';
+	if (conditionStudentGroupInput) conditionStudentGroupInput.style.display = 'none'; // 新增
+	conditionStudentsInput.style.display = 'block';
+	conditionStudentsLabel.style.display = 'block';
+
+	switch (conditionType) {
+		case 'adjacent':
+		case 'not_adjacent':
+			conditionStudentsLabel.textContent = '學生編號 (逗號分隔，例如: (1, 5), (7, 8)):';
+			break;
+		case 'group_area':
+			conditionStudentsLabel.textContent = '學生編號 (逗號分隔，例如: 1, 2, 3, 4):';
+			break;
+		case 'assign_group':
+		case 'adjacent_and_group':
+			conditionGroupInput.style.display = 'block';
+			conditionStudentsLabel.textContent = (conditionType === 'assign_group') ?
+				'學生編號 (逗號分隔，例如: 1 或 (1, 5)):' :
+				'學生編號 (逗號分隔，例如: (1, 5)):';
+			break;
+		case 'assign_student_group_to_seat_group': // 新增條件類型
+			if (conditionStudentGroupInput) conditionStudentGroupInput.style.display = 'block'; // 顯示學生群組選擇器
+			conditionGroupInput.style.display = 'block';       // 顯示座位群組選擇器
+			conditionStudentsInput.style.display = 'none';     // 隱藏學生編號輸入框
+			conditionStudentsLabel.style.display = 'none';     // 隱藏學生編號標籤
+			break;
+		default:
+			conditionStudentsLabel.textContent = '學生編號 (逗號分隔):';
 	}
+	updateControlPanel(); // 確保更新群組選擇器內容
 }
 
 // 處理新增條件
 export function handleAddCondition() {
 	const conditionType = document.getElementById('condition-type').value;
 	const studentsInput = document.getElementById('condition-students').value.trim();
-	let parsedStudents = [];
+	const conditionGroupSelect = document.getElementById('condition-group-select');
+	const conditionStudentGroupSelect = document.getElementById('condition-student-group-select'); // 新增
 
-	if (conditionType === 'adjacent' || conditionType === 'not_adjacent') {
-		// 解析 (A, B), (C, D) 格式
-		const regex = /\((\d+),\s*(\d+)\)/g;
-		let match;
-		while ((match = regex.exec(studentsInput)) !== null) {
-			const student1 = parseInt(match[1]);
-			const student2 = parseInt(match[2]);
-			if (!isNaN(student1) && appState.studentIds.includes(student1) &&
-				!isNaN(student2) && appState.studentIds.includes(student2)) {
-				parsedStudents.push([student1, student2]);
+	let parsedStudents = [];
+	let selectedGroup = undefined;
+	let selectedStudentGroup = undefined; // 新增
+
+	if (conditionType === 'assign_student_group_to_seat_group') { // 新增條件類型處理
+		selectedStudentGroup = conditionStudentGroupSelect ? conditionStudentGroupSelect.value : '';
+		selectedGroup = conditionGroupSelect ? conditionGroupSelect.value : '';
+
+		if (!selectedStudentGroup) {
+			alert('請選擇一個學生群組！');
+			return;
+		}
+		if (!selectedGroup) {
+			alert('請選擇一個座位群組！');
+			return;
+		}
+		parsedStudents = []; // 對於此類型，學生編號陣列可以為空
+	} else {
+		if (conditionType === 'adjacent' || conditionType === 'not_adjacent') {
+			// 解析 (A, B), (C, D) 格式
+			const regex = /\((\d+),\s*(\d+)\)/g;
+			let match;
+			while ((match = regex.exec(studentsInput)) !== null) {
+				const student1 = parseInt(match[1]);
+				const student2 = parseInt(match[2]);
+				if (!isNaN(student1) && appState.studentIds.includes(student1) &&
+					!isNaN(student2) && appState.studentIds.includes(student2)) {
+					parsedStudents.push([student1, student2]);
+				}
+			}
+			if (parsedStudents.length === 0 && studentsInput.length > 0) {
+				alert('「坐在一起」或「不能坐在一起」條件的學生編號格式不正確，請使用 (A, B), (C, D) 格式。');
+				return;
+			}
+		} else if (conditionType === 'group_area' || conditionType === 'assign_group' || conditionType === 'adjacent_and_group') {
+			// 解析 1, 2, 3, 4 或 1 格式
+			const students = studentsInput.split(',').map(s => parseInt(s.trim())).filter(s => !isNaN(s) && appState.studentIds.includes(s));
+			if (students.length === 0 && studentsInput.length > 0) {
+				alert('請輸入有效的學生編號！');
+				return;
+			}
+			parsedStudents.push(students); // 即使只有一個學生，也包裝成 [[studentId]]
+
+			if (conditionType === 'assign_group' || conditionType === 'adjacent_and_group') {
+				selectedGroup = conditionGroupSelect ? conditionGroupSelect.value : '';
+				if (!selectedGroup) {
+					alert('請為指定區域或指定區域且坐在一起條件選擇一個群組！');
+					return;
+				}
 			}
 		}
-		if (parsedStudents.length === 0 && studentsInput.length > 0) {
-			alert('「坐在一起」或「不能坐在一起」條件的學生編號格式不正確，請使用 (A, B), (C, D) 格式。');
-			return;
-		}
-	} else if (conditionType === 'group_area' || conditionType === 'assign_group' || conditionType === 'adjacent_and_group') {
-		// 解析 1, 2, 3, 4 或 1 格式
-		const students = studentsInput.split(',').map(s => parseInt(s.trim())).filter(s => !isNaN(s) && appState.studentIds.includes(s));
-		if (students.length === 0 && studentsInput.length > 0) {
-			alert('請輸入有效的學生編號！');
-			return;
-		}
-		parsedStudents.push(students); // 即使只有一個學生，也包裝成 [[studentId]]
 	}
 
-	if (parsedStudents.length === 0) {
+	if (parsedStudents.length === 0 && studentsInput.length > 0 && conditionType !== 'assign_student_group_to_seat_group') {
 		alert('請輸入有效的學生編號！');
 		return;
 	}
 
 	let newCondition = new Condition(
-		Date.now().toString(), // 簡單的唯一 ID
+		Date.now().toString(),
 		conditionType,
-		parsedStudents // 現在是 number[][]
+		parsedStudents,
+		selectedGroup,
+		selectedStudentGroup // 傳入學生群組名稱
 	);
-
-	if (conditionType === 'assign_group' || conditionType === 'adjacent_and_group') {
-		const conditionGroupSelect = document.getElementById('condition-group-select');
-		const selectedGroup = conditionGroupSelect.value;
-		if (!selectedGroup) {
-			alert('請為指定區域或指定區域且坐在一起條件選擇一個群組！');
-			return;
-		}
-		newCondition.group = selectedGroup;
-	}
 
 	appState.conditions.push(newCondition);
 	document.getElementById('condition-students').value = '';
+	// 重置選擇器
+	if (conditionGroupSelect) conditionGroupSelect.value = '';
+	if (conditionStudentGroupSelect) conditionStudentGroupSelect.value = ''; // 新增
 	updateControlPanel();
 }
 
