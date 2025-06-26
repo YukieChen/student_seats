@@ -366,6 +366,7 @@ function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
         <div class="control-section">
             <h3>設定檔操作</h3>
             <button class="button" id="download-config-button">下載設定</button>
+            <button class="button" id="back-to-initial-setup-button">返回</button>
         </div>
     `;
 
@@ -389,6 +390,7 @@ function renderSeatConfigScreen(mainGridArea, leftPanel, rightPanel) {
 		renderScreen('groupingSetup');
 	});
 	document.getElementById('download-config-button').addEventListener('click', downloadConfig);
+	document.getElementById('back-to-initial-setup-button').addEventListener('click', () => renderScreen('studentGrouping'));
 }
 
 // 渲染分群設定畫面
