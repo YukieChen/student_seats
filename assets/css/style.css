@@ -35,6 +35,8 @@ h1 {
 	/* 元素間距 */
 	flex-wrap: wrap;
 	/* 允許換行，以適應小螢幕 */
+	align-items: flex-start;
+	/* 新增此行 */
 }
 
 /* 左側控制面板 */
@@ -59,7 +61,7 @@ h1 {
 	background-color: #f9f9f9;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
+	align-items: flex-start;
 	/* 網格居中 */
 }
 
