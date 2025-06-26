@@ -122,8 +122,8 @@ function renderInitialSetupScreen(initialSetupScreen) {
 
 		// 驗證 studentCount 和 studentIds 的一致性
 		if (newStudentCount !== appState.studentCount) {
-			alert(`班級總人數 (${newStudentCount}) 與解析出的學生座號數量 (${appState.studentCount}) 不符。系統將以解析出的學生座號數量為準。`);
-			// 這裡不 return，讓程式繼續執行，以 parsedStudentIds.length 為準
+			alert(`班級總人數 (${newStudentCount}) 與解析出的學生座號數量 (${appState.studentCount}) 不符。請重新輸入。`);
+			return; // 阻止進入下一個畫面
 		}
 
 		// 初始化座位網格 (如果尚未初始化或需要重置)
