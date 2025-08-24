@@ -1,4 +1,4 @@
-// algorithms.js - 核心演算法和約束檢查函數
+// algorithms.js - 核心演算法和約束檢查函數 (v2.0 - 修復版本)
 
 import { appState } from './state.js';
 import { renderScreen } from './ui.js';
@@ -196,6 +196,26 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 
 // 核心演算法：開始安排座位
 export async function startAssignment() {
+	console.log("[DEBUG] ===== startAssignment 開始 (v2.1 - 強制更新版本) =====");
+	console.log("[DEBUG] 代碼版本檢查: 這是強制更新版本 v2.1");
+	console.log("[DEBUG] 時間戳:", new Date().toISOString());
+	console.log("[DEBUG] appState 狀態檢查:");
+	console.log("[DEBUG] - studentIds:", appState.studentIds);
+	console.log("[DEBUG] - studentIds.length:", appState.studentIds.length);
+	console.log("[DEBUG] - seats 尺寸:", appState.seats.length, "x", appState.seats[0]?.length);
+	console.log("[DEBUG] - 有效座位數:", appState.seats.flat().filter(seat => seat.isValid).length);
+	console.log("[DEBUG] - conditions 數量:", appState.conditions.length);
+	
+	// 檢查座位群組狀態
+	const seatGroups = {};
+	appState.seats.flat().forEach(seat => {
+		if (seat.isValid) {
+			const groupId = seat.groupId || 'undefined';
+			seatGroups[groupId] = (seatGroups[groupId] || 0) + 1;
+		}
+	});
+	console.log("[DEBUG] - 座位群組分布:", seatGroups);
+	
 	// 1. 執行初始條件衝突檢查
 	const conflicts = checkInitialConditionsForConflicts();
 	if (conflicts.length > 0) {
@@ -224,6 +244,7 @@ export async function startAssignment() {
 	// 條件類型權重
 	const CONDITION_WEIGHTS = {
 		'assign_group': 10,
+		'assign_student_group_to_seat_group': 10, // 新增：學生群組指定區域權重
 		'group_area': 8,
 		'adjacent_and_group': 6,
 		'adjacent': 3,
@@ -233,14 +254,48 @@ export async function startAssignment() {
 	// 調試：檢查條件數據
 	console.log("[DEBUG] appState.conditions 內容:", appState.conditions);
 	console.log("[DEBUG] 條件數量:", appState.conditions.length);
+	console.log("[DEBUG] 條件詳細信息:");
+	appState.conditions.forEach((condition, index) => {
+		console.log(`[DEBUG] 條件 ${index}:`, {
+			id: condition.id,
+			type: condition.type,
+			students: condition.students,
+			group: condition.group,
+			studentGroupName: condition.studentGroupName
+		});
+	});
+	
+	// 調試：檢查座位群組
+	console.log("[DEBUG] 座位群組檢查:");
+	appState.seats.forEach((row, rowIndex) => {
+		row.forEach((seat, colIndex) => {
+			if (seat.isValid) {
+				console.log(`[DEBUG] 座位 (${rowIndex}, ${colIndex}): groupId = ${seat.groupId}`);
+			}
+		});
+	});
 	
 	// 計算每個學生的分數
+	console.log("[DEBUG] 開始計算學生分數...");
+	console.log("[DEBUG] studentScores 初始狀態:", Array.from(studentScores.entries()));
+	
 	appState.conditions.forEach((condition, index) => {
 		console.log(`[DEBUG] 處理條件 ${index}:`, condition);
 		console.log(`[DEBUG] 條件類型: ${condition.type}, 權重: ${CONDITION_WEIGHTS[condition.type] || 1}`);
 		console.log(`[DEBUG] 條件學生:`, condition.students);
 		
-		const studentsInCondition = condition.students.flat();
+		let studentsInCondition = [];
+		
+		// 處理 assign_student_group_to_seat_group 條件
+		if (condition.type === 'assign_student_group_to_seat_group') {
+			const studentGroupName = condition.studentGroupName;
+			studentsInCondition = appState.studentGroups[studentGroupName] || [];
+			console.log(`[DEBUG] assign_student_group_to_seat_group 條件: 從學生群組 "${studentGroupName}" 獲取學生:`, studentsInCondition);
+		} else {
+			// 處理其他條件類型
+			studentsInCondition = condition.students.flat();
+		}
+		
 		console.log(`[DEBUG] 扁平化後的學生列表:`, studentsInCondition);
 		
 		const weight = CONDITION_WEIGHTS[condition.type] || 1;
@@ -251,16 +306,25 @@ export async function startAssignment() {
 			console.log(`[DEBUG] studentScores.has(${studentId}): ${studentScores.has(studentId)}`);
 			console.log(`[DEBUG] studentScores.has("${studentId}"): ${studentScores.has(String(studentId))}`);
 			
-			// 嘗試多種ID格式
-			let actualStudentId = studentId;
-			if (!studentScores.has(actualStudentId)) {
-				actualStudentId = String(studentId);
-			}
-			if (!studentScores.has(actualStudentId)) {
-				actualStudentId = Number(studentId);
+			// 嘗試多種ID格式，確保類型一致性
+			let actualStudentId = null;
+			const possibleIds = [
+				studentId,
+				String(studentId),
+				Number(studentId),
+				parseInt(studentId),
+				studentId.toString()
+			];
+			
+			// 找到匹配的ID
+			for (const id of possibleIds) {
+				if (studentScores.has(id)) {
+					actualStudentId = id;
+					break;
+				}
 			}
 			
-			if (studentScores.has(actualStudentId)) {
+			if (actualStudentId !== null) {
 				let score = studentScores.get(actualStudentId);
 				console.log(`[DEBUG] 學生 ${actualStudentId} 原始分數: ${score}`);
 				
@@ -268,7 +332,7 @@ export async function startAssignment() {
 				console.log(`[DEBUG] 加上權重 ${weight} 後分數: ${score}`);
 				
 				// 特殊座位需求額外分數
-				if (condition.type === 'assign_group' && isSpecialSeatGroup(condition.group)) {
+				if ((condition.type === 'assign_group' || condition.type === 'assign_student_group_to_seat_group') && condition.group && isSpecialSeatGroup(condition.group)) {
 					score += 5; // 額外分數
 					console.log(`[DEBUG] 特殊座位額外分數 +5, 新分數: ${score}`);
 				}
@@ -282,10 +346,72 @@ export async function startAssignment() {
 				studentScores.set(actualStudentId, score);
 				console.log(`[DEBUG] 學生 ${actualStudentId} 最終分數: ${score}`);
 			} else {
-				console.log(`[DEBUG] 警告：學生 ${studentId} 不在 studentScores 中`);
+				console.log(`[DEBUG] 警告：學生 ${studentId} 不在 studentScores 中，嘗試的ID格式:`, possibleIds);
+				console.log(`[DEBUG] studentScores 中的所有學生ID:`, Array.from(studentScores.keys()));
 			}
 		});
 	});
+
+	// 處理 groupSeatAssignments 綁定：為第一張圖片中的學生群組綁定計算分數
+	console.log("[DEBUG] 處理 groupSeatAssignments 綁定分數計算...");
+	for (const seatGroupId in appState.groupSeatAssignments) {
+		const studentGroupName = appState.groupSeatAssignments[seatGroupId];
+		const studentsInStudentGroup = appState.studentGroups[studentGroupName] || [];
+		
+		console.log(`[DEBUG] groupSeatAssignments 綁定: 學生群組 "${studentGroupName}" 綁定到座位群組 "${seatGroupId}"，學生:`, studentsInStudentGroup);
+		
+		// 使用與 assign_student_group_to_seat_group 相同的權重
+		const weight = CONDITION_WEIGHTS['assign_student_group_to_seat_group'] || 10;
+		
+		studentsInStudentGroup.forEach(studentId => {
+			console.log(`[DEBUG] 處理 groupSeatAssignments 學生 ${studentId}, 類型: ${typeof studentId}`);
+			
+			// 嘗試多種ID格式，確保類型一致性
+			let actualStudentId = null;
+			const possibleIds = [
+				studentId,
+				String(studentId),
+				Number(studentId),
+				parseInt(studentId),
+				studentId.toString()
+			];
+			
+			// 找到匹配的ID
+			for (const id of possibleIds) {
+				if (studentScores.has(id)) {
+					actualStudentId = id;
+					break;
+				}
+			}
+			
+			if (actualStudentId !== null) {
+				let score = studentScores.get(actualStudentId);
+				console.log(`[DEBUG] groupSeatAssignments 學生 ${actualStudentId} 原始分數: ${score}`);
+				
+				score += weight;
+				console.log(`[DEBUG] groupSeatAssignments 加上權重 ${weight} 後分數: ${score}`);
+				
+				// 特殊座位需求額外分數
+				if (isSpecialSeatGroup(seatGroupId)) {
+					score += 5; // 額外分數
+					console.log(`[DEBUG] groupSeatAssignments 特殊座位額外分數 +5, 新分數: ${score}`);
+				}
+				
+				// 條件複雜度分數（參與學生數量）
+				const studentCount = studentsInStudentGroup.length;
+				const complexityBonus = Math.min(studentCount * 0.5, 3);
+				score += complexityBonus; // 最多加3分
+				console.log(`[DEBUG] groupSeatAssignments 條件複雜度分數 +${complexityBonus}, 新分數: ${score}`);
+				
+				studentScores.set(actualStudentId, score);
+				console.log(`[DEBUG] groupSeatAssignments 學生 ${actualStudentId} 最終分數: ${score}`);
+			} else {
+				console.log(`[DEBUG] 警告：groupSeatAssignments 學生 ${studentId} 不在 studentScores 中，嘗試的ID格式:`, possibleIds);
+			}
+		});
+	}
+	
+	console.log("[DEBUG] 學生分數計算完成，最終結果:", Array.from(studentScores.entries()));
 	
 	// 學生排序邏輯：先隨機打亂，然後根據改進的分數進行穩定排序
 	allStudents = shuffleArray(allStudents); // 首先隨機打亂學生順序
@@ -308,6 +434,8 @@ export async function startAssignment() {
 	// 建立學生到相關條件的映射
 	const studentToConditionsMap = new Map();
 	allStudents.forEach(s => studentToConditionsMap.set(s, []));
+	
+	// 處理一般條件
 	appState.conditions.forEach(condition => {
 		condition.students.flat().forEach(s => {
 			if (studentToConditionsMap.has(s)) {
@@ -315,6 +443,33 @@ export async function startAssignment() {
 			}
 		});
 	});
+	
+	// 處理 groupSeatAssignments 綁定：為第一張圖片中的學生群組綁定創建虛擬條件
+	for (const seatGroupId in appState.groupSeatAssignments) {
+		const studentGroupName = appState.groupSeatAssignments[seatGroupId];
+		const studentsInStudentGroup = appState.studentGroups[studentGroupName] || [];
+		
+		// 為每個學生創建一個虛擬的 assign_group 條件
+		studentsInStudentGroup.forEach(studentId => {
+			const virtualCondition = {
+				type: 'assign_group',
+				group: seatGroupId,
+				students: [[studentId]], // 使用與 assign_group 相同的格式
+				id: `virtual_${seatGroupId}_${studentId}`,
+				studentGroupName: studentGroupName
+			};
+			
+			// 嘗試多種ID格式
+			const possibleIds = [studentId, String(studentId), Number(studentId)];
+			for (const id of possibleIds) {
+				if (studentToConditionsMap.has(id)) {
+					studentToConditionsMap.get(id).push(virtualCondition);
+					console.log(`[DEBUG] 為學生 ${id} 添加虛擬條件: assign_group 到群組 ${seatGroupId}`);
+					break;
+				}
+			}
+		});
+	}
 	
 	// 檢查身高較高學生的條件
 	console.log("[DEBUG] 身高較高學生的條件:");
@@ -389,6 +544,7 @@ export async function startAssignment() {
 	console.log("[DEBUG] startAssignment 結束時的 unassignedStudents:", Array.from(unassignedStudents));
 	appState.unassignedStudents = Array.from(unassignedStudents);
 	console.log("[DEBUG] Final unassigned students (after assignment to appState):", appState.unassignedStudents);
+	console.log("[DEBUG] ===== startAssignment 結束 =====");
 
 	// 更新未安排學生清單
 	const unassignedListElement = document.getElementById('unassigned-students-list');
@@ -697,12 +853,28 @@ function checkNotAdjacent(studentA, studentB, assignedStudentsMap) {
 // 輔助函數：檢查初始條件是否存在明顯衝突
 function checkInitialConditionsForConflicts() {
 	let conflicts = [];
+	
+	console.log("[DEBUG] 開始初始條件衝突檢查...");
+	console.log("[DEBUG] 總學生數量:", appState.studentIds.length);
+	console.log("[DEBUG] 總有效座位數:", appState.seats.flat().filter(seat => seat.isValid).length);
+	console.log("[DEBUG] 條件詳細信息:");
+	appState.conditions.forEach((condition, index) => {
+		console.log(`[DEBUG] 條件 ${index}:`, {
+			id: condition.id,
+			type: condition.type,
+			students: condition.students,
+			group: condition.group,
+			studentGroupName: condition.studentGroupName
+		});
+	});
 
 	// 檢查總體學生數量是否超過總有效座位數
 	const totalStudents = appState.studentIds.length;
 	const totalValidSeats = appState.seats.flat().filter(seat => seat.isValid).length;
 	if (totalStudents > totalValidSeats) {
-		conflicts.push(`總學生數量 (${totalStudents}) 超過總有效座位數 (${totalValidSeats})。`);
+		const conflict = `總學生數量 (${totalStudents}) 超過總有效座位數 (${totalValidSeats})。`;
+		conflicts.push(conflict);
+		console.log(`[DEBUG] 發現衝突: ${conflict}`);
 	}
 
 	// 檢查 assign_group 條件：指定群組的學生數量是否超過該群組的有效座位數
@@ -713,6 +885,7 @@ function checkInitialConditionsForConflicts() {
 			// condition.students 是一個二維陣列，例如 [[1], [5]] 或 [[1, 2]]
 			const studentsInCondition = condition.students.flat();
 			groupAssignmentCounts.set(groupName, (groupAssignmentCounts.get(groupName) || 0) + studentsInCondition.length);
+			console.log(`[DEBUG] assign_group 條件: 群組 "${groupName}" 需要 ${studentsInCondition.length} 個學生`);
 		}
 	});
 
@@ -723,8 +896,11 @@ function checkInitialConditionsForConflicts() {
 			const studentsInCondition = condition.students[0]; // group_area 的 students 是單一陣列
 			const requiredStudents = studentsInCondition.length;
 			const availableSeatsInGroup = appState.seats.flat().filter(seat => seat.isValid && seat.groupId === groupName).length;
+			console.log(`[DEBUG] group_area 條件: 群組 "${groupName}" 需要 ${requiredStudents} 個學生，可用座位 ${availableSeatsInGroup} 個`);
 			if (requiredStudents > availableSeatsInGroup) {
-				conflicts.push(`群組區域 "${groupName}" 需要 ${requiredStudents} 個座位，但只有 ${availableSeatsInGroup} 個有效座位。`);
+				const conflict = `群組區域 "${groupName}" 需要 ${requiredStudents} 個座位，但只有 ${availableSeatsInGroup} 個有效座位。`;
+				conflicts.push(conflict);
+				console.log(`[DEBUG] 發現衝突: ${conflict}`);
 			}
 		}
 	});
@@ -736,20 +912,71 @@ function checkInitialConditionsForConflicts() {
 			const studentsInCondition = condition.students.flat();
 			const requiredStudents = studentsInCondition.length;
 			const availableSeatsInGroup = appState.seats.flat().filter(seat => seat.isValid && seat.groupId === groupName).length;
+			console.log(`[DEBUG] adjacent_and_group 條件: 群組 "${groupName}" 需要 ${requiredStudents} 個學生，可用座位 ${availableSeatsInGroup} 個`);
 			if (requiredStudents > availableSeatsInGroup) {
-				conflicts.push(`相鄰且同群組 "${groupName}" 需要 ${requiredStudents} 個座位，但只有 ${availableSeatsInGroup} 個有效座位。`);
+				const conflict = `相鄰且同群組 "${groupName}" 需要 ${requiredStudents} 個座位，但只有 ${availableSeatsInGroup} 個有效座位。`;
+				conflicts.push(conflict);
+				console.log(`[DEBUG] 發現衝突: ${conflict}`);
 			}
 		}
 	});
 
-	// 檢查所有群組的學生數量
-	groupAssignmentCounts.forEach((requiredStudents, groupName) => {
-		const availableSeatsInGroup = appState.seats.flat().filter(seat => seat.isValid && seat.groupId === groupName).length;
-		if (requiredStudents > availableSeatsInGroup) {
-			conflicts.push(`群組 "${groupName}" 需要 ${requiredStudents} 個座位，但只有 ${availableSeatsInGroup} 個有效座位。`);
+	// 檢查 assign_student_group_to_seat_group 條件：學生群組指定區域的學生數量是否超過該群組的有效座位數
+	appState.conditions.forEach(condition => {
+		if (condition.type === 'assign_student_group_to_seat_group') {
+			const seatGroupName = condition.group;
+			const studentGroupName = condition.studentGroupName;
+			
+			// 獲取學生群組的學生數量
+			const studentsInStudentGroup = appState.studentGroups[studentGroupName] || [];
+			const requiredStudents = studentsInStudentGroup.length;
+			
+			// 獲取座位群組的可用座位數
+			const availableSeatsInGroup = appState.seats.flat().filter(seat => seat.isValid && seat.groupId === seatGroupName).length;
+			
+			console.log(`[DEBUG] assign_student_group_to_seat_group 條件: 學生群組 "${studentGroupName}" 有 ${requiredStudents} 個學生，座位群組 "${seatGroupName}" 有 ${availableSeatsInGroup} 個座位`);
+			
+			if (requiredStudents > availableSeatsInGroup) {
+				const conflict = `學生群組 "${studentGroupName}" 有 ${requiredStudents} 個學生，但座位群組 "${seatGroupName}" 只有 ${availableSeatsInGroup} 個座位。`;
+				conflicts.push(conflict);
+				console.log(`[DEBUG] 發現衝突: ${conflict}`);
+			}
 		}
 	});
 
+	// 檢查 groupSeatAssignments 綁定：第一張圖片中的學生群組與座位群組綁定
+	console.log("[DEBUG] 檢查 groupSeatAssignments 綁定關係:", appState.groupSeatAssignments);
+	for (const seatGroupId in appState.groupSeatAssignments) {
+		const studentGroupName = appState.groupSeatAssignments[seatGroupId];
+		
+		// 獲取學生群組的學生數量
+		const studentsInStudentGroup = appState.studentGroups[studentGroupName] || [];
+		const requiredStudents = studentsInStudentGroup.length;
+		
+		// 獲取座位群組的可用座位數
+		const availableSeatsInGroup = appState.seats.flat().filter(seat => seat.isValid && seat.groupId === seatGroupId).length;
+		
+		console.log(`[DEBUG] groupSeatAssignments 綁定: 學生群組 "${studentGroupName}" 有 ${requiredStudents} 個學生，座位群組 "${seatGroupId}" 有 ${availableSeatsInGroup} 個座位`);
+		
+		if (requiredStudents > availableSeatsInGroup) {
+			const conflict = `學生群組 "${studentGroupName}" 有 ${requiredStudents} 個學生，但座位群組 "${seatGroupId}" 只有 ${availableSeatsInGroup} 個座位。`;
+			conflicts.push(conflict);
+			console.log(`[DEBUG] 發現衝突: ${conflict}`);
+		}
+	}
+
+	// 檢查所有群組的學生數量
+	groupAssignmentCounts.forEach((requiredStudents, groupName) => {
+		const availableSeatsInGroup = appState.seats.flat().filter(seat => seat.isValid && seat.groupId === groupName).length;
+		console.log(`[DEBUG] assign_group 總計: 群組 "${groupName}" 需要 ${requiredStudents} 個學生，可用座位 ${availableSeatsInGroup} 個`);
+		if (requiredStudents > availableSeatsInGroup) {
+			const conflict = `群組 "${groupName}" 需要 ${requiredStudents} 個座位，但只有 ${availableSeatsInGroup} 個有效座位。`;
+			conflicts.push(conflict);
+			console.log(`[DEBUG] 發現衝突: ${conflict}`);
+		}
+	});
+
+	console.log(`[DEBUG] 初始條件衝突檢查完成，發現 ${conflicts.length} 個衝突:`, conflicts);
 	return conflicts;
 }
 

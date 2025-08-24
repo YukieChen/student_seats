@@ -1,4 +1,4 @@
-// utils.js - 通用輔助函數
+// utils.js - 通用輔助函數 (v2.0 - 修復版本)
 
 import { appState, Seat, Condition } from './state.js';
 import { renderScreen } from './ui.js';
@@ -95,7 +95,8 @@ export function downloadConfig() {
 
 // 上傳設定
 export function uploadConfig(event) {
-	console.log("uploadConfig 函數被調用");
+	console.log("uploadConfig 函數被調用 (v2.1)");
+	console.log("[DEBUG] 開始載入設定檔...");
 	const file = event.target.files[0];
 	if (file) {
 		const reader = new FileReader();
@@ -124,25 +125,47 @@ export function uploadConfig(event) {
 				// 載入座位佈局
 				if (loadedConfig.seats && Array.isArray(loadedConfig.seats) && loadedConfig.seats.length > 0) { // 允許非 7x7
 					console.log("loadedConfig.seats 是一個有效的陣列");
+					console.log("[DEBUG] 原始座位數據:", loadedConfig.seats);
+					
 					// 重新初始化座位網格以匹配載入的尺寸
 					const rows = loadedConfig.seats.length;
 					const cols = loadedConfig.seats[0].length;
+					console.log(`[DEBUG] 座位網格尺寸: ${rows}x${cols}`);
+					
 					appState.seats = Array(rows).fill(null).map((_, r) =>
 						Array(cols).fill(null).map((_, c) => {
 							const loadedSeat = loadedConfig.seats[r][c];
 							const seat = new Seat(loadedSeat.row, loadedSeat.col);
 							seat.isValid = loadedSeat.isValid;
 							seat.groupId = loadedSeat.groupId;
+							
+							// 調試座位載入
+							if (seat.isValid) {
+								console.log(`[DEBUG] 載入座位 (${r}, ${c}): isValid=${seat.isValid}, groupId=${seat.groupId}`);
+								console.log(`[DEBUG] 原始座位數據:`, loadedSeat);
+							}
+							
 							return seat;
 						})
 					);
 					appState.selectedValidSeatsCount = appState.seats.flat().filter(seat => seat.isValid).length;
+					console.log(`[DEBUG] 載入的有效座位數: ${appState.selectedValidSeatsCount}`);
+					
+					// 檢查座位群組分布
+					const groupDistribution = {};
+					appState.seats.flat().forEach(seat => {
+						if (seat.isValid && seat.groupId) {
+							groupDistribution[seat.groupId] = (groupDistribution[seat.groupId] || 0) + 1;
+						}
+					});
+					console.log("[DEBUG] 座位群組分布:", groupDistribution);
 				} else {
 					// 如果沒有座位數據，則初始化一個空的 7x7 網格
 					appState.seats = Array(7).fill(null).map((_, row) =>
 						Array(7).fill(null).map((_, col) => new Seat(row, col))
 					);
 					appState.selectedValidSeatsCount = 0;
+					console.log("[DEBUG] 沒有座位數據，初始化空網格");
 				}
 
 				// 載入群組
@@ -173,21 +196,52 @@ export function uploadConfig(event) {
 				}
 
 				// 載入條件
+				console.log("[DEBUG] 檢查條件數據載入...");
+				console.log("[DEBUG] loadedConfig.conditions 存在:", !!loadedConfig.conditions);
+				console.log("[DEBUG] loadedConfig.conditions 是陣列:", Array.isArray(loadedConfig.conditions));
+				
 				if (loadedConfig.conditions && Array.isArray(loadedConfig.conditions)) {
 					console.log("loadedConfig.conditions 是一個有效的陣列");
+					console.log("[DEBUG] 原始條件數據:", loadedConfig.conditions);
+					console.log("[DEBUG] 條件數量:", loadedConfig.conditions.length);
+					
 					// 確保載入的 conditions.students 格式正確 (number[][])
-					appState.conditions = loadedConfig.conditions.map(c => new Condition(
-						c.id,
-						c.type,
-						c.students.map(sGroup => Array.isArray(sGroup) ? sGroup : [sGroup]), // 確保是二維陣列
-						c.group,
-						c.studentGroupName // 新增：載入學生群組名稱
-					));
-					console.log("[DEBUG] 載入的條件:", appState.conditions);
+					appState.conditions = loadedConfig.conditions.map(c => {
+						// 處理可能缺失的 studentGroupName 參數
+						const studentGroupName = c.studentGroupName !== undefined ? c.studentGroupName : undefined;
+						
+						// 確保 students 是二維陣列格式
+						const students = c.students.map(sGroup => Array.isArray(sGroup) ? sGroup : [sGroup]);
+						
+						const condition = new Condition(
+							c.id,
+							c.type,
+							students,
+							c.group,
+							studentGroupName
+						);
+						
+						console.log(`[DEBUG] 載入條件 ${c.id}:`, {
+							id: condition.id,
+							type: condition.type,
+							students: condition.students,
+							group: condition.group,
+							studentGroupName: condition.studentGroupName
+						});
+						
+						return condition;
+					});
+					console.log("[DEBUG] 載入的條件總數:", appState.conditions.length);
 				} else {
 					appState.conditions = [];
 					console.log("[DEBUG] 沒有載入到條件數據");
+					console.log("[DEBUG] 警告：條件數據載入失敗！");
 				}
+				
+				// 強制檢查條件載入結果
+				console.log("[DEBUG] 條件載入後檢查:");
+				console.log("[DEBUG] appState.conditions.length:", appState.conditions.length);
+				console.log("[DEBUG] appState.conditions 內容:", appState.conditions);
 
 				alert('設定檔載入成功！');
 				console.log('--- uploadConfig 載入後狀態 ---');

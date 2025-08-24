@@ -744,6 +744,81 @@ if (!studentScores.has(actualStudentId)) {
 
 這個修復解決了條件權重計算系統的根本問題，確保動態調整機制能夠正常工作。
 
+#### 11.12 系統性問題診斷與修復（新增）
+
+##### 11.12.1 問題描述
+用戶發現了系統性問題：
+1. **條件權重計算完全沒有工作**：所有學生分數都是0
+2. **座位群組識別失敗**：所有座位都顯示 `Group:undefined`
+3. **初始衝突檢查沒有工作**：10個學生要排入8個座位沒有警告
+4. **動態調整機制失效**：因為所有學生分數都是0，所以沒有學生可以被踢出
+
+##### 11.12.2 問題原因
+1. **條件數據問題**：條件可能沒有正確載入或設置
+2. **座位群組問題**：座位沒有正確分配到群組
+3. **調試信息不足**：缺乏詳細的診斷信息
+4. **初始衝突檢查邏輯問題**：檢查邏輯可能不完整
+
+##### 11.12.3 修復方案
+
+###### 11.12.3.1 增強調試輸出
+```javascript
+// 條件數據詳細檢查
+console.log("[DEBUG] 條件詳細信息:");
+appState.conditions.forEach((condition, index) => {
+    console.log(`[DEBUG] 條件 ${index}:`, {
+        id: condition.id,
+        type: condition.type,
+        students: condition.students,
+        group: condition.group,
+        studentGroupName: condition.studentGroupName
+    });
+});
+
+// 座位群組檢查
+console.log("[DEBUG] 座位群組檢查:");
+appState.seats.forEach((row, rowIndex) => {
+    row.forEach((seat, colIndex) => {
+        if (seat.isValid) {
+            console.log(`[DEBUG] 座位 (${rowIndex}, ${colIndex}): groupId = ${seat.groupId}`);
+        }
+    });
+});
+
+// 學生分數計算追蹤
+console.log("[DEBUG] 開始計算學生分數...");
+console.log("[DEBUG] studentScores 初始狀態:", Array.from(studentScores.entries()));
+console.log("[DEBUG] 學生分數計算完成，最終結果:", Array.from(studentScores.entries()));
+```
+
+###### 11.12.3.2 改進初始衝突檢查
+```javascript
+// 增強的初始衝突檢查
+console.log("[DEBUG] 開始初始條件衝突檢查...");
+console.log("[DEBUG] 總學生數量:", appState.studentIds.length);
+console.log("[DEBUG] 總有效座位數:", appState.seats.flat().filter(seat => seat.isValid).length);
+
+// 詳細的衝突檢查日誌
+console.log(`[DEBUG] assign_group 條件: 群組 "${groupName}" 需要 ${studentsInCondition.length} 個學生`);
+console.log(`[DEBUG] group_area 條件: 群組 "${groupName}" 需要 ${requiredStudents} 個學生，可用座位 ${availableSeatsInGroup} 個`);
+console.log(`[DEBUG] 發現衝突: ${conflict}`);
+console.log(`[DEBUG] 初始條件衝突檢查完成，發現 ${conflicts.length} 個衝突:`, conflicts);
+```
+
+##### 11.12.4 修復效果
+1. **問題診斷能力**：提供詳細的調試信息，快速識別問題根源
+2. **條件數據追蹤**：完整追蹤條件數據的載入和處理過程
+3. **座位群組檢查**：確認座位群組分配是否正確
+4. **衝突檢查改進**：增強的初始衝突檢查邏輯和日誌
+5. **分數計算追蹤**：完整追蹤學生分數計算過程
+
+##### 11.12.5 診斷步驟
+修復後，用戶應該檢查以下調試輸出：
+1. **條件數據檢查**：確認 `appState.conditions` 是否正確載入
+2. **座位群組檢查**：確認座位是否正確分配到群組
+3. **學生分數檢查**：確認條件權重計算是否正常工作
+4. **衝突檢查**：確認初始衝突檢查是否正確執行
+
 #### 11.11 上傳設定檔條件載入修復（新增）
 
 ##### 11.11.1 問題描述

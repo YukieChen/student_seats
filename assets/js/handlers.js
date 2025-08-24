@@ -55,16 +55,39 @@ export function handleAssignSelectedSeatsToGroup() {
 		return;
 	}
 
+	console.log("[DEBUG] 開始分配座位到群組...");
+	console.log("[DEBUG] 選擇的群組:", selectedGroup);
+	console.log("[DEBUG] 分配前的座位群組分布:");
+	const beforeDistribution = {};
+	appState.seats.flat().forEach(seat => {
+		if (seat.isValid) {
+			const groupId = seat.groupId || 'undefined';
+			beforeDistribution[groupId] = (beforeDistribution[groupId] || 0) + 1;
+		}
+	});
+	console.log("[DEBUG] 分配前:", beforeDistribution);
+	
 	let assignedCount = 0;
 	appState.seats.forEach(row => {
 		row.forEach(seat => {
 			if (seat.isTempSelectedForGrouping) {
+				console.log(`[DEBUG] 分配座位 (${seat.row}, ${seat.col}) 到群組 ${selectedGroup}`);
 				seat.groupId = selectedGroup;
 				seat.isTempSelectedForGrouping = false; // 分配後清除臨時選取狀態
 				assignedCount++;
 			}
 		});
 	});
+	
+	console.log("[DEBUG] 分配後的座位群組分布:");
+	const afterDistribution = {};
+	appState.seats.flat().forEach(seat => {
+		if (seat.isValid) {
+			const groupId = seat.groupId || 'undefined';
+			afterDistribution[groupId] = (afterDistribution[groupId] || 0) + 1;
+		}
+	});
+	console.log("[DEBUG] 分配後:", afterDistribution);
 	if (assignedCount > 0) {
 		alert(`已將 ${assignedCount} 個選取座位分配到群組 "${selectedGroup}"。`);
 	} else {
@@ -235,6 +258,12 @@ export function handleAddCondition() {
 		return;
 	}
 
+	console.log("[DEBUG] 開始添加條件...");
+	console.log("[DEBUG] 條件類型:", conditionType);
+	console.log("[DEBUG] 解析後的學生:", parsedStudents);
+	console.log("[DEBUG] 選擇的群組:", selectedGroup);
+	console.log("[DEBUG] 選擇的學生群組:", selectedStudentGroup);
+	
 	let newCondition = new Condition(
 		Date.now().toString(),
 		conditionType,
@@ -242,8 +271,14 @@ export function handleAddCondition() {
 		selectedGroup,
 		selectedStudentGroup // 傳入學生群組名稱
 	);
-
+	
+	console.log("[DEBUG] 創建的條件物件:", newCondition);
+	console.log("[DEBUG] 添加前的條件數量:", appState.conditions.length);
+	
 	appState.conditions.push(newCondition);
+	
+	console.log("[DEBUG] 添加後的條件數量:", appState.conditions.length);
+	console.log("[DEBUG] appState.conditions 內容:", appState.conditions);
 	document.getElementById('condition-students').value = '';
 	// 重置選擇器
 	if (conditionGroupSelect) conditionGroupSelect.value = '';
