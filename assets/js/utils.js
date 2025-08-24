@@ -180,10 +180,13 @@ export function uploadConfig(event) {
 						c.id,
 						c.type,
 						c.students.map(sGroup => Array.isArray(sGroup) ? sGroup : [sGroup]), // 確保是二維陣列
-						c.group
+						c.group,
+						c.studentGroupName // 新增：載入學生群組名稱
 					));
+					console.log("[DEBUG] 載入的條件:", appState.conditions);
 				} else {
 					appState.conditions = [];
+					console.log("[DEBUG] 沒有載入到條件數據");
 				}
 
 				alert('設定檔載入成功！');

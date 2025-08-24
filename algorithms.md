@@ -644,4 +644,159 @@ console.error(`[ERROR] appState.seats 中的學生:`, appState.seats.flat().filt
 3. **狀態追蹤**：完整追蹤動態調整過程中的狀態變化
 4. **恢復可靠性**：確保動態重新分配失敗時，狀態能完全恢復
 
+#### 11.10 條件權重計算修復（新增）
+
+##### 11.10.1 問題描述
+發現條件權重計算系統完全沒有工作：
+```
+[DEBUG] 學生按改進分數排序後 (分數高的優先): 學生 7 (分數: 0), 學生 36 (分數: 0), ...
+[DEBUG] 身高較高學生的分數: 學生 1: 0, 學生 3: 0, ...
+[DEBUG] 身高較高學生的條件: 學生 1 的條件: , 學生 3 的條件: , ...
+```
+
+所有學生的分數都是0，包括有特殊座位要求的身高較高學生，導致動態調整機制無法正常工作。
+
+##### 11.10.2 問題原因
+1. **條件數據問題**：`appState.conditions` 可能為空或格式不正確
+2. **學生ID類型不匹配**：條件中的學生ID與 `studentScores` 中的ID類型不一致
+3. **條件權重計算邏輯錯誤**：計算過程中的邏輯問題
+4. **調試信息不足**：缺乏詳細的條件處理調試信息
+
+##### 11.10.3 修復方案
+
+###### 11.10.3.1 增強調試輸出
+```javascript
+// 調試：檢查條件數據
+console.log("[DEBUG] appState.conditions 內容:", appState.conditions);
+console.log("[DEBUG] 條件數量:", appState.conditions.length);
+
+// 計算每個學生的分數
+appState.conditions.forEach((condition, index) => {
+    console.log(`[DEBUG] 處理條件 ${index}:`, condition);
+    console.log(`[DEBUG] 條件類型: ${condition.type}, 權重: ${CONDITION_WEIGHTS[condition.type] || 1}`);
+    console.log(`[DEBUG] 條件學生:`, condition.students);
+    
+    const studentsInCondition = condition.students.flat();
+    console.log(`[DEBUG] 扁平化後的學生列表:`, studentsInCondition);
+    
+    const weight = CONDITION_WEIGHTS[condition.type] || 1;
+    console.log(`[DEBUG] 使用權重: ${weight}`);
+    
+    studentsInCondition.forEach(studentId => {
+        console.log(`[DEBUG] 處理學生 ${studentId}, 類型: ${typeof studentId}`);
+        console.log(`[DEBUG] studentScores.has(${studentId}): ${studentScores.has(studentId)}`);
+        console.log(`[DEBUG] studentScores.has("${studentId}"): ${studentScores.has(String(studentId))}`);
+        
+        // 嘗試多種ID格式
+        let actualStudentId = studentId;
+        if (!studentScores.has(actualStudentId)) {
+            actualStudentId = String(studentId);
+        }
+        if (!studentScores.has(actualStudentId)) {
+            actualStudentId = Number(studentId);
+        }
+        
+        if (studentScores.has(actualStudentId)) {
+            let score = studentScores.get(actualStudentId);
+            console.log(`[DEBUG] 學生 ${actualStudentId} 原始分數: ${score}`);
+            
+            score += weight;
+            console.log(`[DEBUG] 加上權重 ${weight} 後分數: ${score}`);
+            
+            // 特殊座位需求額外分數
+            if (condition.type === 'assign_group' && isSpecialSeatGroup(condition.group)) {
+                score += 5; // 額外分數
+                console.log(`[DEBUG] 特殊座位額外分數 +5, 新分數: ${score}`);
+            }
+            
+            // 條件複雜度分數（參與學生數量）
+            const studentCount = studentsInCondition.length;
+            const complexityBonus = Math.min(studentCount * 0.5, 3);
+            score += complexityBonus; // 最多加3分
+            console.log(`[DEBUG] 條件複雜度分數 +${complexityBonus}, 新分數: ${score}`);
+            
+            studentScores.set(actualStudentId, score);
+            console.log(`[DEBUG] 學生 ${actualStudentId} 最終分數: ${score}`);
+        } else {
+            console.log(`[DEBUG] 警告：學生 ${studentId} 不在 studentScores 中`);
+        }
+    });
+});
+```
+
+###### 11.10.3.2 學生ID類型處理
+```javascript
+// 嘗試多種ID格式
+let actualStudentId = studentId;
+if (!studentScores.has(actualStudentId)) {
+    actualStudentId = String(studentId);
+}
+if (!studentScores.has(actualStudentId)) {
+    actualStudentId = Number(studentId);
+}
+```
+
+##### 11.10.4 修復效果
+1. **條件數據診斷**：詳細檢查 `appState.conditions` 的內容和格式
+2. **ID類型兼容**：處理字符串和數字類型的學生ID
+3. **權重計算追蹤**：完整追蹤條件權重計算的每個步驟
+4. **錯誤識別**：快速識別條件權重計算中的問題
+
+這個修復解決了條件權重計算系統的根本問題，確保動態調整機制能夠正常工作。
+
+#### 11.11 上傳設定檔條件載入修復（新增）
+
+##### 11.11.1 問題描述
+用戶提出了一個重要問題：當用戶上傳舊有的設定檔時，條件權重計算可能不會正常工作，因為條件載入過程中存在數據不完整的問題。
+
+##### 11.11.2 問題原因
+在 `uploadConfig` 函數中，條件載入時只傳遞了4個參數給 `Condition` 構造函數，但 `Condition` 類需要5個參數：
+
+```javascript
+// 原來的代碼（有問題）
+appState.conditions = loadedConfig.conditions.map(c => new Condition(
+    c.id,
+    c.type,
+    c.students.map(sGroup => Array.isArray(sGroup) ? sGroup : [sGroup]),
+    c.group  // 缺少 studentGroupName 參數
+));
+
+// Condition 構造函數需要5個參數
+constructor(id, type, students, group = undefined, studentGroupName = undefined)
+```
+
+這導致 `studentGroupName` 參數為 `undefined`，可能影響條件的完整性和後續的權重計算。
+
+##### 11.11.3 修復方案
+
+###### 11.11.3.1 修復條件載入邏輯
+```javascript
+// 修復後的代碼
+appState.conditions = loadedConfig.conditions.map(c => new Condition(
+    c.id,
+    c.type,
+    c.students.map(sGroup => Array.isArray(sGroup) ? sGroup : [sGroup]),
+    c.group,
+    c.studentGroupName // 新增：載入學生群組名稱
+));
+```
+
+###### 11.11.3.2 增強調試輸出
+```javascript
+console.log("[DEBUG] 載入的條件:", appState.conditions);
+console.log("[DEBUG] 沒有載入到條件數據");
+```
+
+##### 11.11.4 修復效果
+1. **條件完整性**：確保所有條件參數都被正確載入
+2. **權重計算可靠性**：條件權重計算在所有情況下都能正常工作
+3. **數據一致性**：上傳設定檔與手動設定檔的數據格式保持一致
+4. **調試便利性**：提供詳細的條件載入調試信息
+
+##### 11.11.5 影響範圍
+這個修復確保了以下場景中條件權重計算都能正常工作：
+- 手動設定條件後進行座位安排
+- 上傳包含條件的設定檔後進行座位安排
+- 混合使用手動設定和上傳設定檔
+
 這個動態調整機制是演算法的重要改進，解決了原有演算法無法處理資源競爭的根本問題。

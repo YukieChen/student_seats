@@ -230,26 +230,59 @@ export async function startAssignment() {
 		'not_adjacent': 2
 	};
 	
+	// 調試：檢查條件數據
+	console.log("[DEBUG] appState.conditions 內容:", appState.conditions);
+	console.log("[DEBUG] 條件數量:", appState.conditions.length);
+	
 	// 計算每個學生的分數
-	appState.conditions.forEach(condition => {
+	appState.conditions.forEach((condition, index) => {
+		console.log(`[DEBUG] 處理條件 ${index}:`, condition);
+		console.log(`[DEBUG] 條件類型: ${condition.type}, 權重: ${CONDITION_WEIGHTS[condition.type] || 1}`);
+		console.log(`[DEBUG] 條件學生:`, condition.students);
+		
 		const studentsInCondition = condition.students.flat();
+		console.log(`[DEBUG] 扁平化後的學生列表:`, studentsInCondition);
+		
 		const weight = CONDITION_WEIGHTS[condition.type] || 1;
+		console.log(`[DEBUG] 使用權重: ${weight}`);
 		
 		studentsInCondition.forEach(studentId => {
-			if (studentScores.has(studentId)) {
-				let score = studentScores.get(studentId);
+			console.log(`[DEBUG] 處理學生 ${studentId}, 類型: ${typeof studentId}`);
+			console.log(`[DEBUG] studentScores.has(${studentId}): ${studentScores.has(studentId)}`);
+			console.log(`[DEBUG] studentScores.has("${studentId}"): ${studentScores.has(String(studentId))}`);
+			
+			// 嘗試多種ID格式
+			let actualStudentId = studentId;
+			if (!studentScores.has(actualStudentId)) {
+				actualStudentId = String(studentId);
+			}
+			if (!studentScores.has(actualStudentId)) {
+				actualStudentId = Number(studentId);
+			}
+			
+			if (studentScores.has(actualStudentId)) {
+				let score = studentScores.get(actualStudentId);
+				console.log(`[DEBUG] 學生 ${actualStudentId} 原始分數: ${score}`);
+				
 				score += weight;
+				console.log(`[DEBUG] 加上權重 ${weight} 後分數: ${score}`);
 				
 				// 特殊座位需求額外分數
 				if (condition.type === 'assign_group' && isSpecialSeatGroup(condition.group)) {
 					score += 5; // 額外分數
+					console.log(`[DEBUG] 特殊座位額外分數 +5, 新分數: ${score}`);
 				}
 				
 				// 條件複雜度分數（參與學生數量）
 				const studentCount = studentsInCondition.length;
-				score += Math.min(studentCount * 0.5, 3); // 最多加3分
+				const complexityBonus = Math.min(studentCount * 0.5, 3);
+				score += complexityBonus; // 最多加3分
+				console.log(`[DEBUG] 條件複雜度分數 +${complexityBonus}, 新分數: ${score}`);
 				
-				studentScores.set(studentId, score);
+				studentScores.set(actualStudentId, score);
+				console.log(`[DEBUG] 學生 ${actualStudentId} 最終分數: ${score}`);
+			} else {
+				console.log(`[DEBUG] 警告：學生 ${studentId} 不在 studentScores 中`);
 			}
 		});
 	});
