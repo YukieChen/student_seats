@@ -571,4 +571,77 @@ for (const condition of studentConditions) {
 
 調試輸出將幫助識別具體的問題所在。
 
+#### 11.9 狀態管理修復（新增）
+
+##### 11.9.1 問題描述
+在動態調整機制中發現了狀態管理問題：
+```
+[ERROR] 學生 6 被從 unassignedStudentsResult 移除，但沒有被安排到座位上！
+[ERROR] 學生 7 被從 unassignedStudentsResult 移除，但沒有被安排到座位上！
+```
+
+##### 11.9.2 問題原因
+1. **狀態檢查不完整**：只檢查了 `appState.seats`，沒有檢查 `currentAssignment`
+2. **狀態恢復不完整**：動態重新分配失敗時，狀態沒有完全恢復
+3. **調試信息不足**：缺乏詳細的狀態追蹤信息
+
+##### 11.9.3 修復方案
+
+###### 11.9.3.1 改進狀態檢查邏輯
+```javascript
+// 檢查學生是否已經被安排到座位上（同時檢查 currentAssignment 和 appState.seats）
+let isAssigned = false;
+
+// 檢查 currentAssignment
+if (currentAssignment.has(currentStudent)) {
+    isAssigned = true;
+    console.log(`[DEBUG] 學生 ${currentStudent} 在 currentAssignment 中找到`);
+}
+
+// 檢查 appState.seats
+if (!isAssigned) {
+    appState.seats.forEach(row => {
+        row.forEach(seat => {
+            if (seat.studentId === currentStudent) {
+                isAssigned = true;
+                console.log(`[DEBUG] 學生 ${currentStudent} 在 appState.seats 中找到`);
+            }
+        });
+    });
+}
+```
+
+###### 11.9.3.2 改進狀態恢復邏輯
+```javascript
+// 遞迴嘗試為被踢出的學生重新安排座位
+const remainingStudents = [studentToRemove];
+if (await solveAssignment(remainingStudents, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, studentScores, startTime, TIMEOUT_MS)) {
+    console.log(`[DEBUG] 動態重新分配成功！學生 ${currentStudent} 坐在學生 ${studentToRemove} 的原座位，學生 ${studentToRemove} 重新安排成功。`);
+    return true; // 成功重新安排
+} else {
+    console.log(`[DEBUG] 學生 ${studentToRemove} 重新安排失敗，恢復原狀...`);
+    // 確保狀態完全恢復
+    currentAssignment.delete(currentStudent);
+    removedSeat.studentId = undefined;
+}
+```
+
+###### 11.9.3.3 增強調試輸出
+```javascript
+// 追蹤狀態變化
+console.log(`[DEBUG] 踢出前的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
+console.log(`[DEBUG] 踢出後的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
+console.log(`[DEBUG] 恢復原狀後的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
+
+// 錯誤診斷
+console.error(`[ERROR] currentAssignment 包含的學生:`, Array.from(currentAssignment.keys()));
+console.error(`[ERROR] appState.seats 中的學生:`, appState.seats.flat().filter(seat => seat.studentId).map(seat => seat.studentId));
+```
+
+##### 11.9.4 修復效果
+1. **狀態一致性**：確保學生狀態在 `currentAssignment` 和 `appState.seats` 中保持一致
+2. **錯誤診斷**：提供詳細的錯誤信息，幫助快速定位問題
+3. **狀態追蹤**：完整追蹤動態調整過程中的狀態變化
+4. **恢復可靠性**：確保動態重新分配失敗時，狀態能完全恢復
+
 這個動態調整機制是演算法的重要改進，解決了原有演算法無法處理資源競爭的根本問題。

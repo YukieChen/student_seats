@@ -153,12 +153,15 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 	// 嘗試踢出每個候選學生
 	for (const studentToRemove of candidatesForRemoval) {
 		console.log(`[DEBUG] 嘗試踢出學生 ${studentToRemove} 為學生 ${currentStudent} 騰出座位...`);
+		console.log(`[DEBUG] 踢出前的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
 		
 		const removedSeat = currentAssignment.get(studentToRemove);
 		
 		// 暫時移除該學生
 		currentAssignment.delete(studentToRemove);
 		removedSeat.studentId = undefined;
+		
+		console.log(`[DEBUG] 踢出後的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
 		
 		// 檢查當前學生是否可以坐在這個座位
 		if (canStudentSitHere(currentStudent, removedSeat, currentAssignment, studentToConditionsMap)) {
@@ -175,12 +178,16 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 				return true; // 成功重新安排
 			} else {
 				console.log(`[DEBUG] 學生 ${studentToRemove} 重新安排失敗，恢復原狀...`);
+				// 確保狀態完全恢復
+				currentAssignment.delete(currentStudent);
+				removedSeat.studentId = undefined;
 			}
 		}
 		
 		// 失敗，恢復原狀
 		currentAssignment.set(studentToRemove, removedSeat);
 		removedSeat.studentId = studentToRemove;
+		console.log(`[DEBUG] 恢復原狀後的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
 	}
 	
 	console.log(`[DEBUG] 動態重新分配失敗，無法為學生 ${currentStudent} 找到合適的座位。`);
@@ -514,20 +521,34 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 		// 如果後續的遞迴成功，則表示找到了部分解決方案
 		// 檢查 currentStudent 是否仍然在 unassignedStudentsResult 中，如果找到解，則將其移除
 		if (unassignedStudentsResult.has(currentStudent)) {
-			// 檢查學生是否已經被安排到座位上
+			// 檢查學生是否已經被安排到座位上（同時檢查 currentAssignment 和 appState.seats）
 			let isAssigned = false;
-			appState.seats.forEach(row => {
-				row.forEach(seat => {
-					if (seat.studentId === currentStudent) {
-						isAssigned = true;
-					}
+			
+			// 檢查 currentAssignment
+			if (currentAssignment.has(currentStudent)) {
+				isAssigned = true;
+				console.log(`[DEBUG] 學生 ${currentStudent} 在 currentAssignment 中找到`);
+			}
+			
+			// 檢查 appState.seats
+			if (!isAssigned) {
+				appState.seats.forEach(row => {
+					row.forEach(seat => {
+						if (seat.studentId === currentStudent) {
+							isAssigned = true;
+							console.log(`[DEBUG] 學生 ${currentStudent} 在 appState.seats 中找到`);
+						}
+					});
 				});
-			});
+			}
+			
 			if (isAssigned) {
 				unassignedStudentsResult.delete(currentStudent);
 				console.log(`[DEBUG] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除 (後續找到解):`, unassignedStudentsResult);
 			} else {
 				console.error(`[ERROR] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除，但沒有被安排到座位上！`);
+				console.error(`[ERROR] currentAssignment 包含的學生:`, Array.from(currentAssignment.keys()));
+				console.error(`[ERROR] appState.seats 中的學生:`, appState.seats.flat().filter(seat => seat.studentId).map(seat => seat.studentId));
 			}
 		}
 		return true; // 返回 true，表示此分支已處理完畢，即使有學生未安排
