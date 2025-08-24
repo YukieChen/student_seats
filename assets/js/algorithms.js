@@ -128,7 +128,29 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 	}
 	
 	const currentStudentScore = studentScores.get(currentStudent) || 0;
-	console.log(`[DEBUG] 嘗試為學生 ${currentStudent} (分數: ${currentStudentScore}) 進行動態重新分配...`);
+	console.log(`[DEBUG] 嘗試為學生 ${currentStudent} (分數: ${currentStudentScore}) 進行智能動態重新分配...`);
+	
+	// 策略1：直接踢出低分學生
+	const directRemovalResult = await tryDirectRemoval(currentStudent, currentAssignment, availableSeats, studentToConditionsMap, studentScores, unassignedStudentsResult, studentHasAssignGroupCondition, startTime, TIMEOUT_MS);
+	if (directRemovalResult) {
+		return true;
+	}
+	
+	// 策略2：智能互換策略
+	const swapResult = await trySmartSwap(currentStudent, currentAssignment, availableSeats, studentToConditionsMap, studentScores, unassignedStudentsResult, studentHasAssignGroupCondition, startTime, TIMEOUT_MS);
+	if (swapResult) {
+		return true;
+	}
+	
+	console.log(`[DEBUG] 所有動態重新分配策略都失敗，無法為學生 ${currentStudent} 找到合適的座位。`);
+	return false;
+}
+
+/**
+ * 策略1：直接踢出低分學生
+ */
+async function tryDirectRemoval(currentStudent, currentAssignment, availableSeats, studentToConditionsMap, studentScores, unassignedStudentsResult, studentHasAssignGroupCondition, startTime, TIMEOUT_MS) {
+	const currentStudentScore = studentScores.get(currentStudent) || 0;
 	
 	// 找到所有已分配的學生，按分數排序（低分優先被踢出）
 	const assignedStudents = Array.from(currentAssignment.keys());
@@ -143,25 +165,17 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 			return scoreA - scoreB; // 分數低的優先被踢出
 		});
 	
-	console.log(`[DEBUG] 可被踢出的候選學生:`, candidatesForRemoval.map(s => `學生 ${s} (分數: ${studentScores.get(s) || 0})`).join(', '));
-	console.log(`[DEBUG] 候選學生數量: ${candidatesForRemoval.length}`);
-	
-	if (candidatesForRemoval.length === 0) {
-		console.log(`[DEBUG] 沒有可被踢出的候選學生，所有已分配學生的分數都不低於當前學生 ${currentStudent} (分數: ${currentStudentScore})`);
-	}
+	console.log(`[DEBUG] 直接踢出策略 - 可被踢出的候選學生:`, candidatesForRemoval.map(s => `學生 ${s} (分數: ${studentScores.get(s) || 0})`).join(', '));
 	
 	// 嘗試踢出每個候選學生
 	for (const studentToRemove of candidatesForRemoval) {
-		console.log(`[DEBUG] 嘗試踢出學生 ${studentToRemove} 為學生 ${currentStudent} 騰出座位...`);
-		console.log(`[DEBUG] 踢出前的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
+		console.log(`[DEBUG] 嘗試直接踢出學生 ${studentToRemove} 為學生 ${currentStudent} 騰出座位...`);
 		
 		const removedSeat = currentAssignment.get(studentToRemove);
 		
 		// 暫時移除該學生
 		currentAssignment.delete(studentToRemove);
 		removedSeat.studentId = undefined;
-		
-		console.log(`[DEBUG] 踢出後的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
 		
 		// 檢查當前學生是否可以坐在這個座位
 		if (canStudentSitHere(currentStudent, removedSeat, currentAssignment, studentToConditionsMap)) {
@@ -174,8 +188,8 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 			// 遞迴嘗試為被踢出的學生重新安排座位
 			const remainingStudents = [studentToRemove];
 			if (await solveAssignment(remainingStudents, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, studentScores, startTime, TIMEOUT_MS)) {
-				console.log(`[DEBUG] 動態重新分配成功！學生 ${currentStudent} 坐在學生 ${studentToRemove} 的原座位，學生 ${studentToRemove} 重新安排成功。`);
-				return true; // 成功重新安排
+				console.log(`[DEBUG] 直接踢出策略成功！學生 ${currentStudent} 坐在學生 ${studentToRemove} 的原座位，學生 ${studentToRemove} 重新安排成功。`);
+				return true;
 			} else {
 				console.log(`[DEBUG] 學生 ${studentToRemove} 重新安排失敗，恢復原狀...`);
 				// 確保狀態完全恢復
@@ -187,11 +201,278 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 		// 失敗，恢復原狀
 		currentAssignment.set(studentToRemove, removedSeat);
 		removedSeat.studentId = studentToRemove;
-		console.log(`[DEBUG] 恢復原狀後的 currentAssignment 狀態:`, Array.from(currentAssignment.keys()));
 	}
 	
-	console.log(`[DEBUG] 動態重新分配失敗，無法為學生 ${currentStudent} 找到合適的座位。`);
-	return false; // 無法重新分配
+	return false;
+}
+
+/**
+ * 策略2：智能互換策略
+ */
+async function trySmartSwap(currentStudent, currentAssignment, availableSeats, studentToConditionsMap, studentScores, unassignedStudentsResult, studentHasAssignGroupCondition, startTime, TIMEOUT_MS) {
+	console.log(`[DEBUG] 開始智能互換策略...`);
+	
+	// 獲取當前學生的條件
+	const currentStudentConditions = studentToConditionsMap.get(currentStudent) || [];
+	console.log(`[DEBUG] 學生 ${currentStudent} 的條件:`, currentStudentConditions.map(c => `${c.type} - ${JSON.stringify(c.students)}`));
+	
+	// 找到所有已分配的學生
+	const assignedStudents = Array.from(currentAssignment.keys());
+	
+	// 策略2a：尋找可以互換的學生（放寬條件，允許更大分數差異）
+	for (const candidateStudent of assignedStudents) {
+		const candidateScore = studentScores.get(candidateStudent) || 0;
+		const currentStudentScore = studentScores.get(currentStudent) || 0;
+		
+		// 放寬互換條件：允許分數差異在5分以內，或者當前學生分數更高
+		if (candidateScore >= currentStudentScore - 5 || currentStudentScore > candidateScore) {
+			console.log(`[DEBUG] 嘗試與學生 ${candidateStudent} (分數: ${candidateScore}) 進行互換，當前學生分數: ${currentStudentScore}...`);
+			
+			const candidateSeat = currentAssignment.get(candidateStudent);
+			const currentStudentSeat = currentAssignment.get(currentStudent);
+			
+			// 檢查互換是否可行
+			if (await canSwapStudents(currentStudent, candidateStudent, currentAssignment, studentToConditionsMap)) {
+				console.log(`[DEBUG] 學生 ${currentStudent} 與學生 ${candidateStudent} 可以互換！`);
+				
+				// 執行互換
+				const tempSeat = { ...candidateSeat };
+				candidateSeat.studentId = currentStudent;
+				currentAssignment.set(currentStudent, candidateSeat);
+				
+				if (currentStudentSeat) {
+					currentStudentSeat.studentId = candidateStudent;
+					currentAssignment.set(candidateStudent, currentStudentSeat);
+					console.log(`[DEBUG] 成功互換：學生 ${currentStudent} 坐到 (${candidateSeat.row}, ${candidateSeat.col})，學生 ${candidateStudent} 坐到 (${currentStudentSeat.row}, ${currentStudentSeat.col})`);
+					return true;
+				} else {
+					// 如果當前學生還沒有座位，則候選學生變成未分配
+					currentAssignment.delete(candidateStudent);
+					candidateSeat.studentId = undefined;
+					
+					// 嘗試為候選學生重新安排座位
+					const remainingStudents = [candidateStudent];
+					if (await solveAssignment(remainingStudents, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, studentScores, startTime, TIMEOUT_MS)) {
+						console.log(`[DEBUG] 智能互換策略成功！學生 ${currentStudent} 與學生 ${candidateStudent} 互換成功。`);
+						return true;
+					} else {
+						// 恢復原狀
+						currentAssignment.delete(currentStudent);
+						candidateSeat.studentId = candidateStudent;
+						currentAssignment.set(candidateStudent, candidateSeat);
+					}
+				}
+			} else {
+				console.log(`[DEBUG] 學生 ${currentStudent} 與學生 ${candidateStudent} 無法互換，條件檢查失敗`);
+			}
+		}
+	}
+	
+	// 策略2b：連鎖調整策略
+	const chainAdjustmentResult = await tryChainAdjustment(currentStudent, currentAssignment, availableSeats, studentToConditionsMap, studentScores, unassignedStudentsResult, studentHasAssignGroupCondition, startTime, TIMEOUT_MS);
+	if (chainAdjustmentResult) {
+		return true;
+	}
+	
+	// 策略2c：尋找可以讓出特殊座位的普通學生
+	const currentStudentNeedsSpecialSeat = currentStudentConditions.some(condition => 
+		condition.type === 'assign_group' && isSpecialSeatGroup(condition.group)
+	);
+	
+	if (currentStudentNeedsSpecialSeat) {
+		console.log(`[DEBUG] 學生 ${currentStudent} 需要特殊座位，尋找可以讓出特殊座位的普通學生...`);
+		
+		for (const candidateStudent of assignedStudents) {
+			const candidateScore = studentScores.get(candidateStudent) || 0;
+			const candidateSeat = currentAssignment.get(candidateStudent);
+			
+			// 檢查候選學生是否坐在特殊座位上
+			if (isSpecialSeat(candidateSeat) && candidateScore < currentStudentScore) {
+				console.log(`[DEBUG] 發現候選學生 ${candidateStudent} 坐在特殊座位上，分數較低，嘗試讓出...`);
+				
+				// 檢查候選學生是否可以坐在普通座位上
+				const availableRegularSeats = availableSeats.filter(seat => 
+					seat.studentId === undefined && !isSpecialSeat(seat)
+				);
+				
+				for (const regularSeat of availableRegularSeats) {
+					// 創建臨時分配狀態進行測試
+					const tempAssignment = new Map(currentAssignment);
+					tempAssignment.delete(candidateStudent);
+					tempAssignment.set(candidateStudent, regularSeat);
+					
+					// 檢查候選學生是否可以坐在普通座位
+					const candidateConditions = studentToConditionsMap.get(candidateStudent) || [];
+					let canSitInRegularSeat = true;
+					
+					for (const condition of candidateConditions) {
+						if (!checkCondition(condition, tempAssignment)) {
+							canSitInRegularSeat = false;
+							break;
+						}
+					}
+					
+					if (canSitInRegularSeat) {
+						console.log(`[DEBUG] 候選學生 ${candidateStudent} 可以坐在普通座位 (${regularSeat.row}, ${regularSeat.col})`);
+						
+						// 執行調整
+						candidateSeat.studentId = undefined;
+						regularSeat.studentId = candidateStudent;
+						currentAssignment.set(candidateStudent, regularSeat);
+						
+						// 檢查當前學生是否可以坐在特殊座位
+						if (canStudentSitHere(currentStudent, candidateSeat, currentAssignment, studentToConditionsMap)) {
+							currentAssignment.set(currentStudent, candidateSeat);
+							candidateSeat.studentId = currentStudent;
+							
+							console.log(`[DEBUG] 智能調整策略成功！學生 ${candidateStudent} 讓出特殊座位，學生 ${currentStudent} 獲得特殊座位。`);
+							return true;
+						} else {
+							// 恢復原狀
+							regularSeat.studentId = undefined;
+							candidateSeat.studentId = candidateStudent;
+							currentAssignment.set(candidateStudent, candidateSeat);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	return false;
+}
+
+/**
+ * 策略2b：連鎖調整策略
+ * 如果A和B互換，B可能需要和C互換，形成連鎖反應
+ */
+async function tryChainAdjustment(currentStudent, currentAssignment, availableSeats, studentToConditionsMap, studentScores, unassignedStudentsResult, studentHasAssignGroupCondition, startTime, TIMEOUT_MS) {
+	console.log(`[DEBUG] 嘗試連鎖調整策略...`);
+	
+	const assignedStudents = Array.from(currentAssignment.keys());
+	const currentStudentScore = studentScores.get(currentStudent) || 0;
+	
+	// 尋找可能的連鎖調整路徑
+	for (const studentA of assignedStudents) {
+		const scoreA = studentScores.get(studentA) || 0;
+		
+		// 檢查是否可以與學生A互換
+		if (scoreA >= currentStudentScore - 3) {
+			const seatA = currentAssignment.get(studentA);
+			
+			// 創建臨時狀態測試互換
+			const tempAssignment = new Map(currentAssignment);
+			tempAssignment.set(currentStudent, seatA);
+			tempAssignment.delete(studentA);
+			
+			// 檢查學生A是否可以坐在其他位置
+			for (const studentB of assignedStudents) {
+				if (studentB === studentA) continue;
+				
+				const seatB = currentAssignment.get(studentB);
+				const scoreB = studentScores.get(studentB) || 0;
+				
+				// 檢查學生A是否可以坐在學生B的位置
+				tempAssignment.set(studentA, seatB);
+				tempAssignment.delete(studentB);
+				
+				let canChain = true;
+				
+				// 檢查所有學生的條件
+				const conditionsA = studentToConditionsMap.get(studentA) || [];
+				for (const condition of conditionsA) {
+					if (!checkCondition(condition, tempAssignment)) {
+						canChain = false;
+						break;
+					}
+				}
+				
+				if (canChain) {
+					const conditionsB = studentToConditionsMap.get(studentB) || [];
+					for (const condition of conditionsB) {
+						if (!checkCondition(condition, tempAssignment)) {
+							canChain = false;
+							break;
+						}
+					}
+				}
+				
+				if (canChain) {
+					console.log(`[DEBUG] 發現連鎖調整路徑：${currentStudent} -> ${studentA} -> ${studentB}`);
+					
+					// 執行連鎖調整
+					seatA.studentId = currentStudent;
+					currentAssignment.set(currentStudent, seatA);
+					
+					seatB.studentId = studentA;
+					currentAssignment.set(studentA, seatB);
+					
+					// 嘗試為學生B重新安排座位
+					const remainingStudents = [studentB];
+					if (await solveAssignment(remainingStudents, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, studentScores, startTime, TIMEOUT_MS)) {
+						console.log(`[DEBUG] 連鎖調整策略成功！`);
+						return true;
+					} else {
+						// 恢復原狀
+						seatA.studentId = studentA;
+						currentAssignment.set(studentA, seatA);
+						currentAssignment.delete(currentStudent);
+						
+						seatB.studentId = studentB;
+						currentAssignment.set(studentB, seatB);
+						currentAssignment.delete(studentA);
+					}
+				}
+				
+				// 恢復臨時狀態
+				tempAssignment.set(studentB, seatB);
+				tempAssignment.delete(studentA);
+			}
+			
+			// 恢復臨時狀態
+			tempAssignment.set(studentA, seatA);
+			tempAssignment.delete(currentStudent);
+		}
+	}
+	
+	return false;
+}
+
+/**
+ * 檢查兩個學生是否可以互換座位
+ */
+async function canSwapStudents(studentA, studentB, currentAssignment, studentToConditionsMap) {
+	const seatA = currentAssignment.get(studentA);
+	const seatB = currentAssignment.get(studentB);
+	
+	if (!seatA || !seatB) {
+		return false; // 至少一個學生沒有座位，無法互換
+	}
+	
+	// 創建臨時分配狀態進行測試
+	const tempAssignment = new Map(currentAssignment);
+	tempAssignment.set(studentA, seatB);
+	tempAssignment.set(studentB, seatA);
+	
+	// 檢查學生A的條件
+	const conditionsA = studentToConditionsMap.get(studentA) || [];
+	for (const condition of conditionsA) {
+		if (!checkCondition(condition, tempAssignment)) {
+			console.log(`[DEBUG] 學生 ${studentA} 互換後不滿足條件: ${condition.type}`);
+			return false;
+		}
+	}
+	
+	// 檢查學生B的條件
+	const conditionsB = studentToConditionsMap.get(studentB) || [];
+	for (const condition of conditionsB) {
+		if (!checkCondition(condition, tempAssignment)) {
+			console.log(`[DEBUG] 學生 ${studentB} 互換後不滿足條件: ${condition.type}`);
+			return false;
+		}
+	}
+	
+	return true;
 }
 
 // 核心演算法：開始安排座位
@@ -546,6 +827,9 @@ export async function startAssignment() {
 	console.log("[DEBUG] Final unassigned students (after assignment to appState):", appState.unassignedStudents);
 	console.log("[DEBUG] ===== startAssignment 結束 =====");
 
+	// 通用狀態驗證：檢查是否有學生被錯誤地標記為未安排
+	validateAndFixAssignmentState(assignedStudentsMap, availableValidSeats, unassignedStudents, studentToConditionsMap);
+
 	// 更新未安排學生清單
 	const unassignedListElement = document.getElementById('unassigned-students-list');
 	if (unassignedListElement) {
@@ -704,6 +988,9 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 	console.log(`[DEBUG] 動態重新分配失敗，將學生 ${currentStudent} 標記為未安排。`);
 	unassignedStudentsResult.add(currentStudent); // 將當前學生標記為未安排
 
+	// 在標記為未安排後，立即進行狀態驗證
+	validateAndFixAssignmentState(currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap);
+
 	// 嘗試遞迴調用 solveAssignment 來安排下一個學生
 	const nextStudentsToAssign = studentsToAssign.filter(s => s !== currentStudent);
 	if (await solveAssignment(nextStudentsToAssign, currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap, studentHasAssignGroupCondition, studentScores, startTime, TIMEOUT_MS)) {
@@ -731,6 +1018,22 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 				});
 			}
 			
+			// 額外檢查：如果學生在動態調整過程中被成功安排，也應該移除
+			if (!isAssigned) {
+				// 檢查是否有空座位可以安排給當前學生
+				const availableEmptySeats = availableSeats.filter(seat => seat.studentId === undefined);
+				for (const emptySeat of availableEmptySeats) {
+					if (canStudentSitHere(currentStudent, emptySeat, currentAssignment, studentToConditionsMap)) {
+						console.log(`[DEBUG] 發現學生 ${currentStudent} 可以坐在空座位 (${emptySeat.row}, ${emptySeat.col})`);
+						isAssigned = true;
+						// 立即安排學生到空座位
+						emptySeat.studentId = currentStudent;
+						currentAssignment.set(currentStudent, emptySeat);
+						break;
+					}
+				}
+			}
+			
 			if (isAssigned) {
 				unassignedStudentsResult.delete(currentStudent);
 				console.log(`[DEBUG] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除 (後續找到解):`, unassignedStudentsResult);
@@ -738,6 +1041,7 @@ async function solveAssignment(studentsToAssign, currentAssignment, availableSea
 				console.error(`[ERROR] 學生 ${currentStudent} 被從 unassignedStudentsResult 移除，但沒有被安排到座位上！`);
 				console.error(`[ERROR] currentAssignment 包含的學生:`, Array.from(currentAssignment.keys()));
 				console.error(`[ERROR] appState.seats 中的學生:`, appState.seats.flat().filter(seat => seat.studentId).map(seat => seat.studentId));
+				console.error(`[ERROR] 可用空座位數量:`, availableSeats.filter(seat => seat.studentId === undefined).length);
 			}
 		}
 		return true; // 返回 true，表示此分支已處理完畢，即使有學生未安排
@@ -1006,4 +1310,134 @@ export function checkAdjacentAndGroup(studentA, studentB, groupName, assignedStu
 		console.log(`[DEBUG] checkAdjacentAndGroup: 學生 ${studentA} (座位: R${seatA.row}C${seatA.col}) 與學生 ${studentB} (座位: R${seatB.row}C${seatB.col}) 不滿足「左右相鄰且都在指定群組 ${groupName}」條件。衝突類型: adjacent_and_group。`);
 	}
 	return isAdjacentAndInGroup;
+}
+
+/**
+ * 通用狀態驗證和修復函數
+ * 檢查是否有學生被錯誤地標記為未安排，並自動修復
+ */
+function validateAndFixAssignmentState(currentAssignment, availableSeats, unassignedStudentsResult, studentToConditionsMap) {
+	console.log("[DEBUG] ===== 開始通用狀態驗證 =====");
+	
+	const unassignedStudentsArray = Array.from(unassignedStudentsResult);
+	console.log("[DEBUG] 未安排學生列表:", unassignedStudentsArray);
+	
+	// 檢查每個未安排學生是否真的無法安排
+	for (const studentId of unassignedStudentsArray) {
+		console.log(`[DEBUG] 驗證學生 ${studentId} 的狀態...`);
+		
+		// 檢查學生是否已經被安排（狀態不一致）
+		if (currentAssignment.has(studentId)) {
+			console.log(`[DEBUG] 發現狀態不一致：學生 ${studentId} 在 currentAssignment 中但也在未安排列表中`);
+			unassignedStudentsResult.delete(studentId);
+			continue;
+		}
+		
+		// 檢查學生是否可以坐在空座位
+		const availableEmptySeats = availableSeats.filter(seat => seat.studentId === undefined);
+		let canBeAssigned = false;
+		
+		for (const emptySeat of availableEmptySeats) {
+			if (canStudentSitHere(studentId, emptySeat, currentAssignment, studentToConditionsMap)) {
+				console.log(`[DEBUG] 發現學生 ${studentId} 可以坐在空座位 (${emptySeat.row}, ${emptySeat.col})，自動安排`);
+				emptySeat.studentId = studentId;
+				currentAssignment.set(studentId, emptySeat);
+				unassignedStudentsResult.delete(studentId);
+				canBeAssigned = true;
+				break;
+			}
+		}
+		
+		if (!canBeAssigned) {
+			console.log(`[DEBUG] 學生 ${studentId} 確實無法安排，進行詳細診斷...`);
+			diagnoseStudentAssignment(studentId, currentAssignment, availableSeats, studentToConditionsMap);
+		}
+	}
+	
+	console.log("[DEBUG] 狀態驗證完成，剩餘未安排學生:", Array.from(unassignedStudentsResult));
+	console.log("[DEBUG] ===== 通用狀態驗證結束 =====");
+}
+
+/**
+ * 通用學生分配診斷函數
+ * 診斷任何學生的分配問題並提供解決建議
+ */
+function diagnoseStudentAssignment(studentId, currentAssignment, availableSeats, studentToConditionsMap) {
+	console.log(`[DEBUG] ===== 診斷學生 ${studentId} 的分配問題 =====`);
+	
+	// 檢查學生的條件
+	const studentConditions = studentToConditionsMap.get(studentId) || [];
+	console.log(`[DEBUG] 學生 ${studentId} 的條件:`, studentConditions.map(c => `${c.type} - ${JSON.stringify(c.students)}`));
+	
+	// 檢查可用的空座位
+	const availableEmptySeats = availableSeats.filter(seat => seat.studentId === undefined);
+	console.log(`[DEBUG] 可用空座位數量: ${availableEmptySeats.length}`);
+	console.log(`[DEBUG] 可用空座位:`, availableEmptySeats.map(seat => `(${seat.row}, ${seat.col}, group: ${seat.groupId})`));
+	
+	// 檢查學生是否可以坐在任何空座位
+	let canSitInAnySeat = false;
+	for (const emptySeat of availableEmptySeats) {
+		const canSit = canStudentSitHere(studentId, emptySeat, currentAssignment, studentToConditionsMap);
+		console.log(`[DEBUG] 學生 ${studentId} 是否可以坐在座位 (${emptySeat.row}, ${emptySeat.col}): ${canSit}`);
+		if (canSit) {
+			canSitInAnySeat = true;
+		}
+	}
+	
+	if (canSitInAnySeat) {
+		console.log(`[DEBUG] 診斷結果：學生 ${studentId} 可以坐在空座位，但沒有被安排。這是一個狀態不一致的問題。`);
+	} else {
+		console.log(`[DEBUG] 診斷結果：學生 ${studentId} 確實無法坐在任何空座位。`);
+		
+		// 分析具體原因
+		analyzeAssignmentFailure(studentId, currentAssignment, availableSeats, studentToConditionsMap);
+	}
+	
+	console.log(`[DEBUG] ===== 學生 ${studentId} 診斷結束 =====`);
+}
+
+/**
+ * 分析分配失敗的具體原因
+ */
+function analyzeAssignmentFailure(studentId, currentAssignment, availableSeats, studentToConditionsMap) {
+	console.log(`[DEBUG] 分析學生 ${studentId} 分配失敗的原因...`);
+	
+	const studentConditions = studentToConditionsMap.get(studentId) || [];
+	const availableEmptySeats = availableSeats.filter(seat => seat.studentId === undefined);
+	
+	// 檢查每個條件
+	for (const condition of studentConditions) {
+		console.log(`[DEBUG] 檢查條件: ${condition.type} - ${JSON.stringify(condition.students)}`);
+		
+		// 檢查每個空座位
+		for (const emptySeat of availableEmptySeats) {
+			// 創建臨時分配狀態進行測試
+			const tempAssignment = new Map(currentAssignment);
+			tempAssignment.set(studentId, emptySeat);
+			
+			// 檢查這個條件
+			const conditionMet = checkCondition(condition, tempAssignment);
+			if (!conditionMet) {
+				console.log(`[DEBUG] 條件 ${condition.type} 在座位 (${emptySeat.row}, ${emptySeat.col}) 不滿足`);
+				
+				// 根據條件類型提供具體分析
+				switch (condition.type) {
+					case 'adjacent':
+						console.log(`[DEBUG] 相鄰條件失敗：需要與其他學生相鄰，但該座位周圍沒有合適的學生`);
+						break;
+					case 'assign_group':
+						console.log(`[DEBUG] 群組條件失敗：需要坐在群組 ${condition.group}，但該座位屬於群組 ${emptySeat.groupId}`);
+						break;
+					case 'group_area':
+						console.log(`[DEBUG] 群組區域條件失敗：需要與其他學生在同一區域`);
+						break;
+					default:
+						console.log(`[DEBUG] 其他條件類型失敗`);
+				}
+			}
+		}
+	}
+	
+	// 檢查是否需要動態調整
+	console.log(`[DEBUG] 建議：嘗試動態調整策略來為學生 ${studentId} 安排座位`);
 }
