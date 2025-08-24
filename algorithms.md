@@ -488,4 +488,87 @@ async function tryReassignSeats(currentStudent, currentAssignment, availableSeat
 3. **超時處理**：確保在超時限制內完成重新分配
 4. **狀態一致性**：確保分配狀態的一致性
 
+#### 11.7 調試機制（新增）
+
+為了確保動態調整機制正確工作，系統添加了詳細的調試輸出：
+
+##### 11.7.1 學生分數調試
+```javascript
+// 檢查身高較高學生的分數
+const tallStudents = [1, 3, 4, 5, 6, 7, 9, 10, 11, 12];
+console.log("[DEBUG] 身高較高學生的分數:");
+tallStudents.forEach(studentId => {
+    const score = studentScores.get(studentId.toString()) || 0;
+    console.log(`[DEBUG] 學生 ${studentId}: ${score}`);
+});
+```
+
+##### 11.7.2 條件檢查調試
+```javascript
+// 檢查身高較高學生的條件
+console.log("[DEBUG] 身高較高學生的條件:");
+tallStudents.forEach(studentId => {
+    const studentIdStr = studentId.toString();
+    const conditions = studentToConditionsMap.get(studentIdStr) || [];
+    console.log(`[DEBUG] 學生 ${studentId} 的條件:`, conditions.map(c => `${c.type} - ${JSON.stringify(c.students)}`).join(', '));
+});
+```
+
+##### 11.7.3 動態調整調試
+```javascript
+// 動態重新分配流程調試
+console.log(`[DEBUG] 開始動態重新分配流程...`);
+console.log(`[DEBUG] 當前學生 ${currentStudent} 的分數: ${studentScores.get(currentStudent) || 0}`);
+console.log(`[DEBUG] 已分配學生列表:`, Array.from(currentAssignment.keys()));
+console.log(`[DEBUG] 已分配學生的分數:`, Array.from(currentAssignment.keys()).map(s => `學生 ${s}: ${studentScores.get(s) || 0}`).join(', '));
+```
+
+##### 11.7.4 候選學生調試
+```javascript
+// 候選學生檢查
+console.log(`[DEBUG] 可被踢出的候選學生:`, candidatesForRemoval.map(s => `學生 ${s} (分數: ${studentScores.get(s) || 0})`).join(', '));
+console.log(`[DEBUG] 候選學生數量: ${candidatesForRemoval.length}`);
+
+if (candidatesForRemoval.length === 0) {
+    console.log(`[DEBUG] 沒有可被踢出的候選學生，所有已分配學生的分數都不低於當前學生 ${currentStudent} (分數: ${currentStudentScore})`);
+}
+```
+
+##### 11.7.5 座位檢查調試
+```javascript
+// 座位檢查調試
+console.log(`[DEBUG] 檢查學生 ${studentId} 是否可以坐在座位 (${seat.row}, ${seat.col})，群組: ${seat.groupId}`);
+console.log(`[DEBUG] 學生 ${studentId} 的條件數量: ${studentConditions.length}`);
+
+for (const condition of studentConditions) {
+    const conditionMet = checkCondition(condition, tempAssignment);
+    console.log(`[DEBUG] 條件 ${condition.type} - ${JSON.stringify(condition.students)}: ${conditionMet ? '滿足' : '不滿足'}`);
+    if (!conditionMet) {
+        console.log(`[DEBUG] 學生 ${studentId} 不能坐在座位 (${seat.row}, ${seat.col})，因為條件 ${condition.type} 不滿足`);
+        return false;
+    }
+}
+```
+
+#### 11.8 問題診斷
+
+基於用戶反饋的問題（學生20和31佔用後排座位，但系統沒有調整），可能的原因包括：
+
+1. **條件設置問題**：
+   - 身高較高學生可能沒有正確的 `assign_group` 條件
+   - 學生20和31可能沒有身高較高的條件（如果他們不是身高較高學生）
+
+2. **分數計算問題**：
+   - 學生20和31的分數可能比身高較高學生高
+   - 動態調整機制只會踢出分數更低的學生
+
+3. **特殊座位識別問題**：
+   - 後排座位群組可能沒有被正確識別為特殊座位群組
+
+4. **動態調整機制問題**：
+   - 遞迴重新分配可能失敗
+   - 條件檢查可能不正確
+
+調試輸出將幫助識別具體的問題所在。
+
 這個動態調整機制是演算法的重要改進，解決了原有演算法無法處理資源競爭的根本問題。
