@@ -1043,7 +1043,7 @@ class DynamicAdjuster {
 
 		// 2. 考慮歷史性能
 		const historicalAdjustment = this.calculateHistoricalAdjustment(strategyScores);
-		
+
 		// 3. 考慮當前情況的特殊因素
 		const situationalAdjustment = this.calculateSituationalAdjustment(conflict, currentAssignment, strategyScores);
 
@@ -1052,7 +1052,7 @@ class DynamicAdjuster {
 		for (const [strategyName, baseScore] of strategyScores) {
 			const historicalScore = historicalAdjustment.get(strategyName) || 0;
 			const situationalScore = situationalAdjustment.get(strategyName) || 0;
-			
+
 			// 綜合評分：基礎評分(60%) + 歷史表現(25%) + 情境適應(15%)
 			const finalScore = baseScore * 0.6 + historicalScore * 0.25 + situationalScore * 0.15;
 			finalScores.set(strategyName, finalScore);
@@ -1065,7 +1065,7 @@ class DynamicAdjuster {
 		for (const [strategyName, score] of finalScores) {
 			if (score > bestScore) {
 				bestScore = score;
-				bestStrategy = this.STRATEGY_CONFIG[strategyName] || 
+				bestStrategy = this.STRATEGY_CONFIG[strategyName] ||
 					strategies.find(s => s.name === strategyName);
 			}
 		}
@@ -1205,11 +1205,11 @@ class DynamicAdjuster {
 				// 計算最近的成功率
 				const recentResults = performance.recentResults.slice(-this.performanceWindow);
 				const successRate = recentResults.filter(r => r.success).length / recentResults.length;
-				
+
 				// 計算平均執行時間（標準化到0-1）
 				const avgExecutionTime = recentResults.reduce((sum, r) => sum + (r.executionTime || 0), 0) / recentResults.length;
 				const normalizedTime = Math.max(0, 1 - avgExecutionTime / 1000); // 假設1000ms為基準
-				
+
 				// 綜合歷史分數
 				const historicalScore = successRate * 0.7 + normalizedTime * 0.3;
 				historicalScores.set(strategyName, historicalScore);
@@ -1315,7 +1315,7 @@ class DynamicAdjuster {
 		}
 
 		const performance = this.strategyPerformance.get(strategyName);
-		
+
 		// 更新基本統計
 		performance.totalExecutions++;
 		if (learningData.success) {
@@ -1349,7 +1349,7 @@ class DynamicAdjuster {
 		if (!performance) return;
 
 		const patternKey = `${learningData.conflictType}_${learningData.assignmentSize}`;
-		
+
 		if (learningData.success) {
 			// 更新成功模式
 			if (!performance.successPatterns.has(patternKey)) {
@@ -1582,7 +1582,7 @@ class DynamicAdjuster {
 	 */
 	calculateVariance(values) {
 		if (values.length === 0) return 0;
-		
+
 		const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
 		const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
 		return squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length;
@@ -1610,6 +1610,2630 @@ class DynamicAdjuster {
 	 */
 	clearStrategyPerformance() {
 		this.strategyPerformance.clear();
+	}
+
+	// ==================== 優先級優化功能 ====================
+
+	/**
+	 * 計算優先級 - 計算學生、座位或條件的優先級
+	 * @param {Object} item 項目對象（學生、座位或條件）
+	 * @param {string} itemType 項目類型（'student', 'seat', 'condition'）
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 優先級分數
+	 */
+	calculatePriority(item, itemType, currentAssignment, students, seats, conditions) {
+		if (!item) {
+			return 0;
+		}
+
+		let priority = 0;
+
+		switch (itemType) {
+			case 'student':
+				priority = this.calculateStudentPriority(item, currentAssignment, students, seats, conditions);
+				break;
+			case 'seat':
+				priority = this.calculateSeatPriority(item, currentAssignment, students, seats, conditions);
+				break;
+			case 'condition':
+				priority = this.calculateConditionPriority(item, currentAssignment, students, seats, conditions);
+				break;
+			case 'strategy':
+				priority = this.calculateStrategyPriority(item, currentAssignment, students, seats, conditions);
+				break;
+			default:
+				priority = 0;
+		}
+
+		// 應用動態調整
+		priority = this.applyDynamicPriorityAdjustment(item, itemType, priority, currentAssignment);
+
+		return Math.max(0, Math.min(100, priority)); // 限制在0-100範圍內
+	}
+
+	/**
+	 * 計算學生優先級
+	 * @param {Object} student 學生對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 學生優先級
+	 */
+	calculateStudentPriority(student, currentAssignment, students, seats, conditions) {
+		let priority = 50; // 基礎優先級
+
+		// 1. 學生個人屬性優先級
+		if (student.priority) {
+			priority += student.priority * 10;
+		}
+
+		// 2. 特殊需求優先級
+		if (student.specialNeeds) {
+			priority += 20;
+		}
+
+		// 3. 學生成績優先級
+		if (student.grade) {
+			priority += student.grade * 2;
+		}
+
+		// 4. 當前分配狀態優先級
+		const currentSeat = currentAssignment.get(student.id);
+		if (currentSeat) {
+			// 已分配的學生，根據分配質量調整優先級
+			const assignmentQuality = this.calculateAssignmentQuality(student, currentSeat, currentAssignment, conditions);
+			priority += assignmentQuality * 5;
+		} else {
+			// 未分配的學生，提高優先級
+			priority += 15;
+		}
+
+		// 5. 條件滿足度優先級
+		const conditionSatisfaction = this.calculateConditionSatisfaction(student, currentAssignment, conditions);
+		priority += conditionSatisfaction * 10;
+
+		// 6. 歷史表現優先級
+		const historicalPerformance = this.getStudentHistoricalPerformance(student.id);
+		priority += historicalPerformance * 5;
+
+		return priority;
+	}
+
+	/**
+	 * 計算座位優先級
+	 * @param {Object} seat 座位對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 座位優先級
+	 */
+	calculateSeatPriority(seat, currentAssignment, students, seats, conditions) {
+		let priority = 50; // 基礎優先級
+
+		// 1. 座位位置優先級
+		if (seat.row === 1) {
+			priority += 10; // 前排優先
+		} else if (seat.row <= 3) {
+			priority += 5; // 前三排優先
+		}
+
+		// 2. 座位類型優先級
+		if (seat.type === 'premium') {
+			priority += 15;
+		} else if (seat.type === 'standard') {
+			priority += 5;
+		}
+
+		// 3. 座位可用性優先級
+		const isOccupied = Array.from(currentAssignment.values()).some(s =>
+			s.row === seat.row && s.col === seat.col
+		);
+		if (!isOccupied) {
+			priority += 10; // 空座位優先
+		}
+
+		// 4. 座位條件匹配度優先級
+		const conditionMatchScore = this.calculateSeatConditionMatch(seat, students, conditions);
+		priority += conditionMatchScore * 8;
+
+		// 5. 座位群組優先級
+		if (seat.groupId) {
+			const groupDemand = this.calculateGroupDemand(seat.groupId, students, currentAssignment);
+			priority += groupDemand * 5;
+		}
+
+		return priority;
+	}
+
+	/**
+	 * 計算條件優先級
+	 * @param {Object} condition 條件對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 條件優先級
+	 */
+	calculateConditionPriority(condition, currentAssignment, students, seats, conditions) {
+		let priority = 50; // 基礎優先級
+
+		// 1. 條件類型優先級
+		const typePriority = {
+			'ADJACENT': 20,
+			'GROUP': 15,
+			'DISTANCE': 10,
+			'SPECIAL': 25
+		};
+		priority += typePriority[condition.type] || 10;
+
+		// 2. 條件緊急程度優先級
+		if (condition.urgent) {
+			priority += 20;
+		}
+
+		// 3. 條件影響範圍優先級
+		const affectedStudents = this.getConditionAffectedStudents(condition, students);
+		priority += affectedStudents.length * 3;
+
+		// 4. 條件滿足度優先級
+		const satisfactionRate = this.calculateConditionSatisfactionRate(condition, currentAssignment);
+		if (satisfactionRate < 0.5) {
+			priority += 15; // 低滿足度提高優先級
+		}
+
+		// 5. 條件複雜度優先級
+		const complexity = this.calculateConditionComplexity(condition);
+		priority += complexity * 5;
+
+		return priority;
+	}
+
+	/**
+	 * 計算策略優先級
+	 * @param {Object} strategy 策略對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 策略優先級
+	 */
+	calculateStrategyPriority(strategy, currentAssignment, students, seats, conditions) {
+		let priority = strategy.priority || 50; // 基礎優先級
+
+		// 1. 策略歷史成功率優先級
+		const performance = this.strategyPerformance.get(strategy.name);
+		if (performance && performance.totalExecutions > 0) {
+			const successRate = performance.successfulExecutions / performance.totalExecutions;
+			priority += successRate * 20;
+		}
+
+		// 2. 策略效率優先級
+		if (performance && performance.totalExecutions > 0) {
+			const avgAttempts = performance.totalAttempts / performance.totalExecutions;
+			const avgTime = performance.totalExecutionTime / performance.totalExecutions;
+
+			// 嘗試次數效率
+			const attemptEfficiency = Math.max(0, 1 - (avgAttempts / 20));
+			priority += attemptEfficiency * 10;
+
+			// 時間效率
+			const timeEfficiency = Math.max(0, 1 - (avgTime / 1000));
+			priority += timeEfficiency * 10;
+		}
+
+		// 3. 策略適用性優先級
+		const applicability = this.evaluateStrategyApplicability(strategy, currentAssignment, students, seats, conditions);
+		priority += applicability * 15;
+
+		return priority;
+	}
+
+	/**
+	 * 按優先級排序 - 對項目列表按優先級進行排序
+	 * @param {Array} items 項目列表
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @param {string} sortOrder 排序順序（'asc' 或 'desc'）
+	 * @returns {Array} 排序後的項目列表
+	 */
+	sortByPriority(items, itemType, currentAssignment, students, seats, conditions, sortOrder = 'desc') {
+		if (!Array.isArray(items) || items.length === 0) {
+			return items;
+		}
+
+		// 計算每個項目的優先級
+		const itemsWithPriority = items.map(item => ({
+			item,
+			priority: this.calculatePriority(item, itemType, currentAssignment, students, seats, conditions)
+		}));
+
+		// 按優先級排序
+		itemsWithPriority.sort((a, b) => {
+			if (sortOrder === 'desc') {
+				return b.priority - a.priority; // 降序（高優先級在前）
+			} else {
+				return a.priority - b.priority; // 升序（低優先級在前）
+			}
+		});
+
+		// 返回排序後的項目（不包含優先級信息）
+		return itemsWithPriority.map(item => item.item);
+	}
+
+	/**
+	 * 動態優先級調整 - 根據當前情況動態調整優先級
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @param {number} basePriority 基礎優先級
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {number} 調整後的優先級
+	 */
+	adjustPriority(item, itemType, basePriority, currentAssignment) {
+		let adjustedPriority = basePriority;
+
+		// 1. 時間因素調整
+		const timeAdjustment = this.calculateTimeBasedAdjustment(item, itemType);
+		adjustedPriority += timeAdjustment;
+
+		// 2. 資源競爭調整
+		const competitionAdjustment = this.calculateCompetitionAdjustment(item, itemType, currentAssignment);
+		adjustedPriority += competitionAdjustment;
+
+		// 3. 歷史表現調整
+		const historicalAdjustment = this.calculateHistoricalAdjustment(item, itemType);
+		adjustedPriority += historicalAdjustment;
+
+		// 4. 緊急程度調整
+		const urgencyAdjustment = this.calculateUrgencyAdjustment(item, itemType);
+		adjustedPriority += urgencyAdjustment;
+
+		// 5. 系統負載調整
+		const loadAdjustment = this.calculateSystemLoadAdjustment(currentAssignment);
+		adjustedPriority += loadAdjustment;
+
+		return Math.max(0, Math.min(100, adjustedPriority));
+	}
+
+	/**
+	 * 優先級衝突解決 - 解決多個項目之間的優先級衝突
+	 * @param {Array} conflictingItems 衝突項目列表
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 衝突解決結果
+	 */
+	resolvePriorityConflict(conflictingItems, itemType, currentAssignment, students, seats, conditions) {
+		if (!Array.isArray(conflictingItems) || conflictingItems.length === 0) {
+			return {
+				resolved: false,
+				selectedItem: null,
+				resolutionMethod: 'no_conflict',
+				reason: '沒有衝突項目'
+			};
+		}
+
+		// 1. 計算所有項目的綜合優先級
+		const itemsWithPriority = conflictingItems.map(item => ({
+			item,
+			priority: this.calculatePriority(item, itemType, currentAssignment, students, seats, conditions),
+			adjustedPriority: this.adjustPriority(item, itemType,
+				this.calculatePriority(item, itemType, currentAssignment, students, seats, conditions),
+				currentAssignment)
+		}));
+
+		// 2. 按調整後的優先級排序
+		itemsWithPriority.sort((a, b) => b.adjustedPriority - a.adjustedPriority);
+
+		// 3. 檢查是否有明顯的優先級差異
+		const topPriority = itemsWithPriority[0].adjustedPriority;
+		const secondPriority = itemsWithPriority.length > 1 ? itemsWithPriority[1].adjustedPriority : 0;
+		const priorityDifference = topPriority - secondPriority;
+
+		// 4. 根據優先級差異選擇解決方法
+		let resolutionMethod = 'priority_based';
+		let reason = '基於優先級選擇';
+
+		if (priorityDifference < 5) {
+			// 優先級差異很小，使用其他方法
+			resolutionMethod = 'tie_breaker';
+			reason = '優先級差異小，使用平局打破方法';
+
+			// 使用平局打破方法
+			const tieBreakerResult = this.applyTieBreaker(itemsWithPriority, itemType, currentAssignment);
+			return {
+				resolved: true,
+				selectedItem: tieBreakerResult.selectedItem,
+				resolutionMethod: tieBreakerResult.method,
+				reason: tieBreakerResult.reason
+			};
+		}
+
+		// 5. 返回最高優先級的項目
+		return {
+			resolved: true,
+			selectedItem: itemsWithPriority[0].item,
+			resolutionMethod,
+			reason,
+			priorityScore: topPriority,
+			allPriorities: itemsWithPriority.map(item => ({
+				item: item.item,
+				priority: item.priority,
+				adjustedPriority: item.adjustedPriority
+			}))
+		};
+	}
+
+	// ==================== 優先級計算輔助方法 ====================
+
+	/**
+	 * 計算分配質量
+	 * @param {Object} student 學生對象
+	 * @param {Object} seat 座位對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 分配質量分數
+	 */
+	calculateAssignmentQuality(student, seat, currentAssignment, conditions) {
+		let quality = 50; // 基礎質量
+
+		// 檢查條件滿足度
+		const studentConditions = this.getStudentConditions(student.id, conditions);
+		let satisfiedConditions = 0;
+		let totalConditions = studentConditions.length;
+
+		for (const condition of studentConditions) {
+			const tempAssignment = new Map(currentAssignment);
+			tempAssignment.set(student.id, seat);
+
+			if (this.checkCondition(condition, tempAssignment)) {
+				satisfiedConditions++;
+			}
+		}
+
+		if (totalConditions > 0) {
+			quality += (satisfiedConditions / totalConditions) * 30;
+		}
+
+		// 座位偏好匹配
+		if (student.preferredSeats && student.preferredSeats.includes(`${seat.row}-${seat.col}`)) {
+			quality += 20;
+		}
+
+		return quality;
+	}
+
+	/**
+	 * 計算條件滿足度
+	 * @param {Object} student 學生對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 條件滿足度
+	 */
+	calculateConditionSatisfaction(student, currentAssignment, conditions) {
+		const studentConditions = this.getStudentConditions(student.id, conditions);
+		if (studentConditions.length === 0) {
+			return 1.0;
+		}
+
+		let satisfiedCount = 0;
+		for (const condition of studentConditions) {
+			if (this.checkCondition(condition, currentAssignment)) {
+				satisfiedCount++;
+			}
+		}
+
+		return satisfiedCount / studentConditions.length;
+	}
+
+	/**
+	 * 獲取學生歷史表現
+	 * @param {string} studentId 學生ID
+	 * @returns {number} 歷史表現分數
+	 */
+	getStudentHistoricalPerformance(studentId) {
+		// 這裡可以從歷史數據中獲取學生的表現
+		// 簡化實現，返回隨機分數
+		return Math.random() * 10;
+	}
+
+	/**
+	 * 計算座位條件匹配度
+	 * @param {Object} seat 座位對象
+	 * @param {Array} students 學生列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 匹配度分數
+	 */
+	calculateSeatConditionMatch(seat, students, conditions) {
+		let matchScore = 0;
+		let totalChecks = 0;
+
+		for (const student of students) {
+			for (const condition of conditions) {
+				if (this.isStudentInCondition(student.id, condition)) {
+					totalChecks++;
+					if (this.doesSeatSatisfyCondition(seat, condition)) {
+						matchScore++;
+					}
+				}
+			}
+		}
+
+		return totalChecks > 0 ? matchScore / totalChecks : 0;
+	}
+
+	/**
+	 * 計算群組需求
+	 * @param {string} groupId 群組ID
+	 * @param {Array} students 學生列表
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {number} 群組需求分數
+	 */
+	calculateGroupDemand(groupId, students, currentAssignment) {
+		let groupStudents = 0;
+		let assignedGroupStudents = 0;
+
+		for (const student of students) {
+			if (student.groupId === groupId) {
+				groupStudents++;
+				if (currentAssignment.has(student.id)) {
+					assignedGroupStudents++;
+				}
+			}
+		}
+
+		return groupStudents > 0 ? (groupStudents - assignedGroupStudents) / groupStudents : 0;
+	}
+
+	/**
+	 * 獲取條件影響的學生
+	 * @param {Object} condition 條件對象
+	 * @param {Array} students 學生列表
+	 * @returns {Array} 影響的學生列表
+	 */
+	getConditionAffectedStudents(condition, students) {
+		if (!condition.students) {
+			return [];
+		}
+
+		const affectedIds = Array.isArray(condition.students) ? condition.students : [condition.students];
+		return students.filter(student => affectedIds.includes(student.id));
+	}
+
+	/**
+	 * 計算條件滿足率
+	 * @param {Object} condition 條件對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {number} 滿足率
+	 */
+	calculateConditionSatisfactionRate(condition, currentAssignment) {
+		// 簡化實現，返回隨機滿足率
+		return Math.random();
+	}
+
+	/**
+	 * 計算條件複雜度
+	 * @param {Object} condition 條件對象
+	 * @returns {number} 複雜度分數
+	 */
+	calculateConditionComplexity(condition) {
+		let complexity = 1;
+
+		// 根據條件類型調整複雜度
+		switch (condition.type) {
+			case 'ADJACENT':
+				complexity = 2;
+				break;
+			case 'GROUP':
+				complexity = 3;
+				break;
+			case 'DISTANCE':
+				complexity = 4;
+				break;
+			case 'SPECIAL':
+				complexity = 5;
+				break;
+		}
+
+		// 根據影響學生數量調整複雜度
+		if (condition.students) {
+			const studentCount = Array.isArray(condition.students) ? condition.students.length : 1;
+			complexity += studentCount * 0.5;
+		}
+
+		return Math.min(complexity, 10);
+	}
+
+	/**
+	 * 評估策略適用性
+	 * @param {Object} strategy 策略對象
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 適用性分數
+	 */
+	evaluateStrategyApplicability(strategy, currentAssignment, students, seats, conditions) {
+		// 簡化實現，返回隨機適用性分數
+		return Math.random();
+	}
+
+	// ==================== 動態調整輔助方法 ====================
+
+	/**
+	 * 計算基於時間的調整
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @returns {number} 時間調整值
+	 */
+	calculateTimeBasedAdjustment(item, itemType) {
+		// 簡化實現，返回隨機調整值
+		return (Math.random() - 0.5) * 10;
+	}
+
+	/**
+	 * 計算競爭調整
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {number} 競爭調整值
+	 */
+	calculateCompetitionAdjustment(item, itemType, currentAssignment) {
+		// 簡化實現，返回隨機調整值
+		return (Math.random() - 0.5) * 5;
+	}
+
+	/**
+	 * 計算歷史調整
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @returns {number} 歷史調整值
+	 */
+	calculateHistoricalAdjustment(item, itemType) {
+		// 簡化實現，返回隨機調整值
+		return (Math.random() - 0.5) * 3;
+	}
+
+	/**
+	 * 計算緊急程度調整
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @returns {number} 緊急程度調整值
+	 */
+	calculateUrgencyAdjustment(item, itemType) {
+		// 簡化實現，返回隨機調整值
+		return (Math.random() - 0.5) * 8;
+	}
+
+	/**
+	 * 計算系統負載調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {number} 系統負載調整值
+	 */
+	calculateSystemLoadAdjustment(currentAssignment) {
+		// 簡化實現，返回隨機調整值
+		return (Math.random() - 0.5) * 4;
+	}
+
+	/**
+	 * 應用動態優先級調整
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @param {number} basePriority 基礎優先級
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {number} 調整後的優先級
+	 */
+	applyDynamicPriorityAdjustment(item, itemType, basePriority, currentAssignment) {
+		return this.adjustPriority(item, itemType, basePriority, currentAssignment);
+	}
+
+	// ==================== 衝突解決輔助方法 ====================
+
+	/**
+	 * 應用平局打破方法
+	 * @param {Array} itemsWithPriority 帶優先級的項目列表
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {Object} 平局打破結果
+	 */
+	applyTieBreaker(itemsWithPriority, itemType, currentAssignment) {
+		// 1. 隨機選擇（最簡單的平局打破方法）
+		const randomIndex = Math.floor(Math.random() * itemsWithPriority.length);
+
+		return {
+			selectedItem: itemsWithPriority[randomIndex].item,
+			method: 'random_selection',
+			reason: '優先級相同，隨機選擇'
+		};
+	}
+
+	/**
+	 * 檢查學生是否在條件中
+	 * @param {string} studentId 學生ID
+	 * @param {Object} condition 條件對象
+	 * @returns {boolean} 是否在條件中
+	 */
+	isStudentInCondition(studentId, condition) {
+		if (!condition.students) {
+			return false;
+		}
+
+		if (Array.isArray(condition.students)) {
+			return condition.students.includes(studentId);
+		}
+
+		return condition.students === studentId;
+	}
+
+	/**
+	 * 檢查座位是否滿足條件
+	 * @param {Object} seat 座位對象
+	 * @param {Object} condition 條件對象
+	 * @returns {boolean} 是否滿足條件
+	 */
+	doesSeatSatisfyCondition(seat, condition) {
+		// 簡化實現，返回隨機結果
+		return Math.random() > 0.5;
+	}
+
+	// ==================== 優先級管理方法 ====================
+
+	/**
+	 * 獲取項目優先級
+	 * @param {Object} item 項目對象
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 優先級信息
+	 */
+	getItemPriority(item, itemType, currentAssignment, students, seats, conditions) {
+		const basePriority = this.calculatePriority(item, itemType, currentAssignment, students, seats, conditions);
+		const adjustedPriority = this.adjustPriority(item, itemType, basePriority, currentAssignment);
+
+		return {
+			item,
+			itemType,
+			basePriority,
+			adjustedPriority,
+			adjustments: {
+				time: this.calculateTimeBasedAdjustment(item, itemType),
+				competition: this.calculateCompetitionAdjustment(item, itemType, currentAssignment),
+				historical: this.calculateHistoricalAdjustment(item, itemType),
+				urgency: this.calculateUrgencyAdjustment(item, itemType),
+				systemLoad: this.calculateSystemLoadAdjustment(currentAssignment)
+			}
+		};
+	}
+
+	/**
+	 * 批量計算優先級
+	 * @param {Array} items 項目列表
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Array} 帶優先級的項目列表
+	 */
+	batchCalculatePriority(items, itemType, currentAssignment, students, seats, conditions) {
+		return items.map(item => this.getItemPriority(item, itemType, currentAssignment, students, seats, conditions));
+	}
+
+	/**
+	 * 獲取優先級統計
+	 * @param {Array} items 項目列表
+	 * @param {string} itemType 項目類型
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 優先級統計信息
+	 */
+	getPriorityStatistics(items, itemType, currentAssignment, students, seats, conditions) {
+		const priorities = items.map(item =>
+			this.calculatePriority(item, itemType, currentAssignment, students, seats, conditions)
+		);
+
+		if (priorities.length === 0) {
+			return {
+				count: 0,
+				average: 0,
+				min: 0,
+				max: 0,
+				median: 0,
+				variance: 0
+			};
+		}
+
+		const sorted = priorities.sort((a, b) => a - b);
+		const sum = priorities.reduce((acc, val) => acc + val, 0);
+		const average = sum / priorities.length;
+		const variance = priorities.reduce((acc, val) => acc + Math.pow(val - average, 2), 0) / priorities.length;
+
+		return {
+			count: priorities.length,
+			average: average,
+			min: sorted[0],
+			max: sorted[sorted.length - 1],
+			median: sorted[Math.floor(sorted.length / 2)],
+			variance: variance
+		};
+	}
+
+	// ==================== 全局優化算法 ====================
+
+	/**
+	 * 全局狀態評估 - 評估當前分配狀態的整體質量
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 全局狀態評估結果
+	 */
+	evaluateGlobalState(currentAssignment, students, seats, conditions) {
+		const evaluation = {
+			overallScore: 0,
+			assignmentRate: 0,
+			conditionSatisfaction: 0,
+			studentSatisfaction: 0,
+			seatUtilization: 0,
+			conflictCount: 0,
+			optimizationPotential: 0,
+			details: {}
+		};
+
+		try {
+			// 1. 分配率評估
+			evaluation.assignmentRate = this.calculateAssignmentRate(currentAssignment, students);
+			evaluation.details.assignmentRate = {
+				assignedStudents: currentAssignment.size,
+				totalStudents: students.length,
+				rate: evaluation.assignmentRate
+			};
+
+			// 2. 條件滿足度評估
+			evaluation.conditionSatisfaction = this.calculateGlobalConditionSatisfaction(currentAssignment, conditions);
+			evaluation.details.conditionSatisfaction = {
+				satisfiedConditions: 0,
+				totalConditions: conditions.length,
+				rate: evaluation.conditionSatisfaction
+			};
+
+			// 3. 學生滿意度評估
+			evaluation.studentSatisfaction = this.calculateGlobalStudentSatisfaction(currentAssignment, students, seats, conditions);
+			evaluation.details.studentSatisfaction = {
+				satisfiedStudents: 0,
+				totalStudents: students.length,
+				rate: evaluation.studentSatisfaction
+			};
+
+			// 4. 座位利用率評估
+			evaluation.seatUtilization = this.calculateSeatUtilization(currentAssignment, seats);
+			evaluation.details.seatUtilization = {
+				usedSeats: currentAssignment.size,
+				totalSeats: seats.length,
+				rate: evaluation.seatUtilization
+			};
+
+			// 5. 衝突數量評估
+			evaluation.conflictCount = this.countGlobalConflicts(currentAssignment, students, seats, conditions);
+			evaluation.details.conflictCount = {
+				conflicts: evaluation.conflictCount,
+				severity: this.assessConflictSeverity(evaluation.conflictCount, students.length)
+			};
+
+			// 6. 優化潛力評估
+			evaluation.optimizationPotential = this.calculateOptimizationPotential(currentAssignment, students, seats, conditions);
+			evaluation.details.optimizationPotential = {
+				potential: evaluation.optimizationPotential,
+				areas: this.identifyOptimizationAreas(currentAssignment, students, seats, conditions)
+			};
+
+			// 7. 綜合評分計算
+			evaluation.overallScore = this.calculateOverallGlobalScore(evaluation);
+
+		} catch (error) {
+			console.error('全局狀態評估失敗:', error);
+			evaluation.overallScore = 0;
+		}
+
+		return evaluation;
+	}
+
+	/**
+	 * 全局優化算法 - 執行全局優化來改善分配狀態
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @param {Object} options 優化選項
+	 * @returns {Object} 全局優化結果
+	 */
+	globalOptimization(currentAssignment, students, seats, conditions, options = {}) {
+		const optimizationOptions = {
+			maxIterations: options.maxIterations || 50,
+			improvementThreshold: options.improvementThreshold || 0.01,
+			timeLimit: options.timeLimit || 30000, // 30秒
+			enableLocalOptimaAvoidance: options.enableLocalOptimaAvoidance !== false,
+			enableConvergenceCheck: options.enableConvergenceCheck !== false,
+			...options
+		};
+
+		const optimizationResult = {
+			success: false,
+			improvedAssignment: new Map(currentAssignment),
+			initialScore: 0,
+			finalScore: 0,
+			improvement: 0,
+			iterations: 0,
+			executionTime: 0,
+			convergenceReached: false,
+			localOptimaAvoided: false,
+			optimizationHistory: [],
+			details: {}
+		};
+
+		const startTime = Date.now();
+
+		try {
+			// 1. 評估初始狀態
+			const initialEvaluation = this.evaluateGlobalState(currentAssignment, students, seats, conditions);
+			optimizationResult.initialScore = initialEvaluation.overallScore;
+			optimizationResult.improvedAssignment = new Map(currentAssignment);
+
+			// 2. 執行迭代優化
+			let currentAssignment = new Map(optimizationResult.improvedAssignment);
+			let currentScore = optimizationResult.initialScore;
+			let consecutiveNoImprovement = 0;
+			let bestAssignment = new Map(currentAssignment);
+			let bestScore = currentScore;
+
+			for (let iteration = 0; iteration < optimizationOptions.maxIterations; iteration++) {
+				// 檢查時間限制
+				if (Date.now() - startTime > optimizationOptions.timeLimit) {
+					optimizationResult.details.terminationReason = 'time_limit_reached';
+					break;
+				}
+
+				// 檢查收斂
+				if (optimizationOptions.enableConvergenceCheck &&
+					this.checkGlobalConvergence(optimizationResult.optimizationHistory, iteration)) {
+					optimizationResult.convergenceReached = true;
+					optimizationResult.details.terminationReason = 'convergence_reached';
+					break;
+				}
+
+				// 執行單次優化
+				const iterationResult = this.performOptimizationIteration(
+					currentAssignment, students, seats, conditions, iteration
+				);
+
+				// 評估新狀態
+				const newEvaluation = this.evaluateGlobalState(iterationResult.newAssignment, students, seats, conditions);
+				const newScore = newEvaluation.overallScore;
+
+				// 記錄優化歷史
+				optimizationResult.optimizationHistory.push({
+					iteration,
+					score: newScore,
+					improvement: newScore - currentScore,
+					strategy: iterationResult.strategy,
+					changes: iterationResult.changes
+				});
+
+				// 檢查改進
+				if (newScore > bestScore) {
+					bestScore = newScore;
+					bestAssignment = new Map(iterationResult.newAssignment);
+					consecutiveNoImprovement = 0;
+				} else {
+					consecutiveNoImprovement++;
+				}
+
+				// 更新當前狀態
+				currentAssignment = new Map(iterationResult.newAssignment);
+				currentScore = newScore;
+
+				// 檢查改進閾值
+				if (Math.abs(newScore - currentScore) < optimizationOptions.improvementThreshold) {
+					consecutiveNoImprovement++;
+				}
+
+				// 避免局部最優
+				if (optimizationOptions.enableLocalOptimaAvoidance &&
+					consecutiveNoImprovement > 5) {
+					const avoidanceResult = this.avoidLocalOptima(
+						currentAssignment, students, seats, conditions, iteration
+					);
+					if (avoidanceResult.success) {
+						currentAssignment = new Map(avoidanceResult.newAssignment);
+						optimizationResult.localOptimaAvoided = true;
+						consecutiveNoImprovement = 0;
+					}
+				}
+
+				optimizationResult.iterations = iteration + 1;
+			}
+
+			// 3. 設置最終結果
+			optimizationResult.improvedAssignment = bestAssignment;
+			optimizationResult.finalScore = bestScore;
+			optimizationResult.improvement = bestScore - optimizationResult.initialScore;
+			optimizationResult.success = optimizationResult.improvement > 0;
+			optimizationResult.executionTime = Date.now() - startTime;
+
+			// 4. 生成詳細報告
+			optimizationResult.details = this.generateOptimizationReport(optimizationResult, students, seats, conditions);
+
+		} catch (error) {
+			console.error('全局優化失敗:', error);
+			optimizationResult.success = false;
+			optimizationResult.details.error = error.message;
+		}
+
+		return optimizationResult;
+	}
+
+	/**
+	 * 局部最優避免 - 避免陷入局部最優解
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @param {number} iteration 當前迭代次數
+	 * @returns {Object} 避免局部最優結果
+	 */
+	avoidLocalOptima(currentAssignment, students, seats, conditions, iteration) {
+		const avoidanceResult = {
+			success: false,
+			newAssignment: new Map(currentAssignment),
+			strategy: 'none',
+			perturbation: 0,
+			details: {}
+		};
+
+		try {
+			// 1. 評估當前狀態的局部性
+			const localityAssessment = this.assessLocalOptimaLocality(currentAssignment, students, seats, conditions);
+
+			if (localityAssessment.isLocalOptima) {
+				// 2. 選擇避免策略
+				const avoidanceStrategy = this.selectAvoidanceStrategy(localityAssessment, iteration);
+				avoidanceResult.strategy = avoidanceStrategy.name;
+
+				// 3. 執行避免策略
+				switch (avoidanceStrategy.name) {
+					case 'random_perturbation':
+						avoidanceResult.newAssignment = this.performRandomPerturbation(currentAssignment, students, seats, conditions);
+						break;
+					case 'strategic_swap':
+						avoidanceResult.newAssignment = this.performStrategicSwap(currentAssignment, students, seats, conditions);
+						break;
+					case 'partial_reset':
+						avoidanceResult.newAssignment = this.performPartialReset(currentAssignment, students, seats, conditions);
+						break;
+					case 'temperature_increase':
+						avoidanceResult.newAssignment = this.performTemperatureIncrease(currentAssignment, students, seats, conditions);
+						break;
+					default:
+						avoidanceResult.newAssignment = new Map(currentAssignment);
+				}
+
+				// 4. 驗證新分配的有效性
+				if (this.validateAssignment(avoidanceResult.newAssignment, students, seats, conditions)) {
+					avoidanceResult.success = true;
+					avoidanceResult.perturbation = this.calculatePerturbationLevel(currentAssignment, avoidanceResult.newAssignment);
+				}
+
+				// 5. 記錄避免詳情
+				avoidanceResult.details = {
+					localityAssessment,
+					avoidanceStrategy,
+					perturbationLevel: avoidanceResult.perturbation
+				};
+			}
+
+		} catch (error) {
+			console.error('局部最優避免失敗:', error);
+			avoidanceResult.success = false;
+			avoidanceResult.details.error = error.message;
+		}
+
+		return avoidanceResult;
+	}
+
+	/**
+	 * 全局收斂檢查 - 檢查優化過程是否已收斂
+	 * @param {Array} optimizationHistory 優化歷史
+	 * @param {number} currentIteration 當前迭代次數
+	 * @returns {Object} 收斂檢查結果
+	 */
+	checkGlobalConvergence(optimizationHistory, currentIteration) {
+		const convergenceResult = {
+			converged: false,
+			convergenceType: 'none',
+			confidence: 0,
+			details: {}
+		};
+
+		if (optimizationHistory.length < 10) {
+			return convergenceResult;
+		}
+
+		try {
+			// 1. 檢查分數收斂
+			const scoreConvergence = this.checkScoreConvergence(optimizationHistory);
+			if (scoreConvergence.converged) {
+				convergenceResult.converged = true;
+				convergenceResult.convergenceType = 'score_convergence';
+				convergenceResult.confidence = scoreConvergence.confidence;
+				convergenceResult.details.scoreConvergence = scoreConvergence;
+			}
+
+			// 2. 檢查改進收斂
+			const improvementConvergence = this.checkImprovementConvergence(optimizationHistory);
+			if (improvementConvergence.converged) {
+				convergenceResult.converged = true;
+				convergenceResult.convergenceType = 'improvement_convergence';
+				convergenceResult.confidence = Math.max(convergenceResult.confidence, improvementConvergence.confidence);
+				convergenceResult.details.improvementConvergence = improvementConvergence;
+			}
+
+			// 3. 檢查策略收斂
+			const strategyConvergence = this.checkStrategyConvergence(optimizationHistory);
+			if (strategyConvergence.converged) {
+				convergenceResult.converged = true;
+				convergenceResult.convergenceType = 'strategy_convergence';
+				convergenceResult.confidence = Math.max(convergenceResult.confidence, strategyConvergence.confidence);
+				convergenceResult.details.strategyConvergence = strategyConvergence;
+			}
+
+			// 4. 綜合收斂評估
+			convergenceResult.details = {
+				scoreConvergence,
+				improvementConvergence,
+				strategyConvergence,
+				totalIterations: currentIteration,
+				historyLength: optimizationHistory.length
+			};
+
+		} catch (error) {
+			console.error('收斂檢查失敗:', error);
+			convergenceResult.converged = false;
+			convergenceResult.details.error = error.message;
+		}
+
+		return convergenceResult;
+	}
+
+	// ==================== 全局優化輔助方法 ====================
+
+	/**
+	 * 計算分配率
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @returns {number} 分配率
+	 */
+	calculateAssignmentRate(assignment, students) {
+		return students.length > 0 ? assignment.size / students.length : 0;
+	}
+
+	/**
+	 * 計算全局條件滿足度
+	 * @param {Map} assignment 分配
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 條件滿足度
+	 */
+	calculateGlobalConditionSatisfaction(assignment, conditions) {
+		if (conditions.length === 0) {
+			return 1.0;
+		}
+
+		let satisfiedConditions = 0;
+		for (const condition of conditions) {
+			if (this.checkCondition(condition, assignment)) {
+				satisfiedConditions++;
+			}
+		}
+
+		return satisfiedConditions / conditions.length;
+	}
+
+	/**
+	 * 計算全局學生滿意度
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 學生滿意度
+	 */
+	calculateGlobalStudentSatisfaction(assignment, students, seats, conditions) {
+		if (students.length === 0) {
+			return 0;
+		}
+
+		let totalSatisfaction = 0;
+		for (const student of students) {
+			const seat = assignment.get(student.id);
+			if (seat) {
+				const satisfaction = this.calculateStudentSatisfaction(student, seat, assignment, conditions);
+				totalSatisfaction += satisfaction;
+			}
+		}
+
+		return totalSatisfaction / students.length;
+	}
+
+	/**
+	 * 計算座位利用率
+	 * @param {Map} assignment 分配
+	 * @param {Array} seats 座位列表
+	 * @returns {number} 座位利用率
+	 */
+	calculateSeatUtilization(assignment, seats) {
+		return seats.length > 0 ? assignment.size / seats.length : 0;
+	}
+
+	/**
+	 * 計算學生滿意度
+	 * @param {Object} student 學生對象
+	 * @param {Object} seat 座位對象
+	 * @param {Map} assignment 分配
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 滿意度分數
+	 */
+	calculateStudentSatisfaction(student, seat, assignment, conditions) {
+		let satisfaction = 0.5; // 基礎滿意度
+
+		// 條件滿足度
+		const conditionSatisfaction = this.calculateConditionSatisfaction(student, assignment, conditions);
+		satisfaction += conditionSatisfaction * 0.3;
+
+		// 座位偏好
+		if (student.preferredSeats && student.preferredSeats.includes(`${seat.row}-${seat.col}`)) {
+			satisfaction += 0.2;
+		}
+
+		// 座位質量
+		if (seat.type === 'premium') {
+			satisfaction += 0.1;
+		}
+
+		return Math.min(1, Math.max(0, satisfaction));
+	}
+
+	/**
+	 * 計算全局衝突數量
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 衝突數量
+	 */
+	countGlobalConflicts(assignment, students, seats, conditions) {
+		let conflictCount = 0;
+
+		// 檢查條件衝突
+		for (const condition of conditions) {
+			if (!this.checkCondition(condition, assignment)) {
+				conflictCount++;
+			}
+		}
+
+		// 檢查座位重複分配
+		const usedSeats = new Set();
+		for (const seat of assignment.values()) {
+			const seatKey = `${seat.row}-${seat.col}`;
+			if (usedSeats.has(seatKey)) {
+				conflictCount++;
+			}
+			usedSeats.add(seatKey);
+		}
+
+		return conflictCount;
+	}
+
+	/**
+	 * 評估衝突嚴重性
+	 * @param {number} conflictCount 衝突數量
+	 * @param {number} totalStudents 總學生數
+	 * @returns {string} 嚴重性等級
+	 */
+	assessConflictSeverity(conflictCount, totalStudents) {
+		const conflictRate = totalStudents > 0 ? conflictCount / totalStudents : 0;
+
+		if (conflictRate < 0.1) return 'low';
+		if (conflictRate < 0.3) return 'medium';
+		if (conflictRate < 0.5) return 'high';
+		return 'critical';
+	}
+
+	/**
+	 * 計算優化潛力
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 優化潛力
+	 */
+	calculateOptimizationPotential(assignment, students, seats, conditions) {
+		let potential = 0;
+
+		// 未分配學生的潛力
+		const unassignedStudents = students.length - assignment.size;
+		potential += unassignedStudents * 0.2;
+
+		// 條件不滿足的潛力
+		const unsatisfiedConditions = conditions.filter(condition => !this.checkCondition(condition, assignment)).length;
+		potential += unsatisfiedConditions * 0.3;
+
+		// 座位利用率潛力
+		const utilizationRate = this.calculateSeatUtilization(assignment, seats);
+		if (utilizationRate < 0.8) {
+			potential += (0.8 - utilizationRate) * 0.4;
+		}
+
+		return Math.min(1, potential);
+	}
+
+	/**
+	 * 識別優化區域
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Array} 優化區域列表
+	 */
+	identifyOptimizationAreas(assignment, students, seats, conditions) {
+		const areas = [];
+
+		// 未分配學生區域
+		if (assignment.size < students.length) {
+			areas.push({
+				type: 'unassigned_students',
+				priority: 'high',
+				count: students.length - assignment.size
+			});
+		}
+
+		// 條件衝突區域
+		const unsatisfiedConditions = conditions.filter(condition => !this.checkCondition(condition, assignment));
+		if (unsatisfiedConditions.length > 0) {
+			areas.push({
+				type: 'condition_conflicts',
+				priority: 'high',
+				count: unsatisfiedConditions.length
+			});
+		}
+
+		// 座位利用率區域
+		const utilizationRate = this.calculateSeatUtilization(assignment, seats);
+		if (utilizationRate < 0.8) {
+			areas.push({
+				type: 'low_utilization',
+				priority: 'medium',
+				rate: utilizationRate
+			});
+		}
+
+		return areas;
+	}
+
+	/**
+	 * 計算綜合全局評分
+	 * @param {Object} evaluation 評估結果
+	 * @returns {number} 綜合評分
+	 */
+	calculateOverallGlobalScore(evaluation) {
+		const weights = {
+			assignmentRate: 0.25,
+			conditionSatisfaction: 0.30,
+			studentSatisfaction: 0.25,
+			seatUtilization: 0.10,
+			conflictCount: -0.10 // 負權重，衝突越多分數越低
+		};
+
+		let score = 0;
+		score += evaluation.assignmentRate * weights.assignmentRate;
+		score += evaluation.conditionSatisfaction * weights.conditionSatisfaction;
+		score += evaluation.studentSatisfaction * weights.studentSatisfaction;
+		score += evaluation.seatUtilization * weights.seatUtilization;
+		score += Math.max(0, 1 - evaluation.conflictCount / 10) * Math.abs(weights.conflictCount);
+
+		return Math.min(1, Math.max(0, score));
+	}
+
+	/**
+	 * 執行優化迭代
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @param {number} iteration 迭代次數
+	 * @returns {Object} 迭代結果
+	 */
+	performOptimizationIteration(currentAssignment, students, seats, conditions, iteration) {
+		// 選擇優化策略
+		const strategies = ['swap_optimization', 'reassignment_optimization', 'condition_optimization'];
+		const selectedStrategy = strategies[iteration % strategies.length];
+
+		let newAssignment = new Map(currentAssignment);
+		let changes = [];
+
+		switch (selectedStrategy) {
+			case 'swap_optimization':
+				const swapResult = this.performSwapOptimization(currentAssignment, students, seats, conditions);
+				newAssignment = swapResult.newAssignment;
+				changes = swapResult.changes;
+				break;
+			case 'reassignment_optimization':
+				const reassignmentResult = this.performReassignmentOptimization(currentAssignment, students, seats, conditions);
+				newAssignment = reassignmentResult.newAssignment;
+				changes = reassignmentResult.changes;
+				break;
+			case 'condition_optimization':
+				const conditionResult = this.performConditionOptimization(currentAssignment, students, seats, conditions);
+				newAssignment = conditionResult.newAssignment;
+				changes = conditionResult.changes;
+				break;
+		}
+
+		return {
+			newAssignment,
+			strategy: selectedStrategy,
+			changes
+		};
+	}
+
+	/**
+	 * 執行交換優化
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 交換優化結果
+	 */
+	performSwapOptimization(assignment, students, seats, conditions) {
+		const newAssignment = new Map(assignment);
+		const changes = [];
+
+		// 尋找可優化的交換
+		const assignedStudents = Array.from(assignment.keys());
+		for (let i = 0; i < assignedStudents.length; i++) {
+			for (let j = i + 1; j < assignedStudents.length; j++) {
+				const student1 = assignedStudents[i];
+				const student2 = assignedStudents[j];
+				const seat1 = assignment.get(student1);
+				const seat2 = assignment.get(student2);
+
+				// 檢查交換是否會改善情況
+				const currentScore = this.calculateAssignmentQuality(
+					students.find(s => s.id === student1), seat1, assignment, conditions
+				) + this.calculateAssignmentQuality(
+					students.find(s => s.id === student2), seat2, assignment, conditions
+				);
+
+				// 模擬交換
+				const tempAssignment = new Map(assignment);
+				tempAssignment.set(student1, seat2);
+				tempAssignment.set(student2, seat1);
+
+				const newScore = this.calculateAssignmentQuality(
+					students.find(s => s.id === student1), seat2, tempAssignment, conditions
+				) + this.calculateAssignmentQuality(
+					students.find(s => s.id === student2), seat1, tempAssignment, conditions
+				);
+
+				if (newScore > currentScore) {
+					newAssignment.set(student1, seat2);
+					newAssignment.set(student2, seat1);
+					changes.push({
+						type: 'swap',
+						student1,
+						student2,
+						improvement: newScore - currentScore
+					});
+					break; // 只執行一次交換
+				}
+			}
+			if (changes.length > 0) break;
+		}
+
+		return { newAssignment, changes };
+	}
+
+	/**
+	 * 執行重新分配優化
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 重新分配優化結果
+	 */
+	performReassignmentOptimization(assignment, students, seats, conditions) {
+		const newAssignment = new Map(assignment);
+		const changes = [];
+
+		// 尋找未分配的學生
+		const unassignedStudents = students.filter(student => !assignment.has(student.id));
+		const availableSeats = seats.filter(seat =>
+			!Array.from(assignment.values()).some(s => s.row === seat.row && s.col === seat.col)
+		);
+
+		for (const student of unassignedStudents) {
+			let bestSeat = null;
+			let bestScore = -1;
+
+			for (const seat of availableSeats) {
+				const score = this.calculateAssignmentQuality(student, seat, newAssignment, conditions);
+				if (score > bestScore) {
+					bestScore = score;
+					bestSeat = seat;
+				}
+			}
+
+			if (bestSeat) {
+				newAssignment.set(student.id, bestSeat);
+				changes.push({
+					type: 'reassignment',
+					student: student.id,
+					seat: bestSeat,
+					score: bestScore
+				});
+			}
+		}
+
+		return { newAssignment, changes };
+	}
+
+	/**
+	 * 執行條件優化
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 條件優化結果
+	 */
+	performConditionOptimization(assignment, students, seats, conditions) {
+		const newAssignment = new Map(assignment);
+		const changes = [];
+
+		// 找出不滿足的條件
+		const unsatisfiedConditions = conditions.filter(condition => !this.checkCondition(condition, assignment));
+
+		for (const condition of unsatisfiedConditions) {
+			// 嘗試通過調整分配來滿足條件
+			const adjustmentResult = this.adjustAssignmentForCondition(condition, newAssignment, students, seats, conditions);
+			if (adjustmentResult.success) {
+				newAssignment.clear();
+				adjustmentResult.newAssignment.forEach((value, key) => newAssignment.set(key, value));
+				changes.push({
+					type: 'condition_adjustment',
+					condition: condition.type,
+					adjustments: adjustmentResult.adjustments
+				});
+			}
+		}
+
+		return { newAssignment, changes };
+	}
+
+	/**
+	 * 為條件調整分配
+	 * @param {Object} condition 條件對象
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 調整結果
+	 */
+	adjustAssignmentForCondition(condition, assignment, students, seats, conditions) {
+		// 簡化實現，返回失敗結果
+		return {
+			success: false,
+			newAssignment: new Map(assignment),
+			adjustments: []
+		};
+	}
+
+	/**
+	 * 驗證分配
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {boolean} 是否有效
+	 */
+	validateAssignment(assignment, students, seats, conditions) {
+		// 檢查是否有重複分配
+		const usedSeats = new Set();
+		for (const seat of assignment.values()) {
+			const seatKey = `${seat.row}-${seat.col}`;
+			if (usedSeats.has(seatKey)) {
+				return false;
+			}
+			usedSeats.add(seatKey);
+		}
+
+		// 檢查座位是否有效
+		for (const seat of assignment.values()) {
+			const isValidSeat = seats.some(s => s.row === seat.row && s.col === seat.col);
+			if (!isValidSeat) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * 生成優化報告
+	 * @param {Object} optimizationResult 優化結果
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 優化報告
+	 */
+	generateOptimizationReport(optimizationResult, students, seats, conditions) {
+		const finalEvaluation = this.evaluateGlobalState(
+			optimizationResult.improvedAssignment, students, seats, conditions
+		);
+
+		return {
+			initialEvaluation: {
+				score: optimizationResult.initialScore,
+				assignmentRate: this.calculateAssignmentRate(new Map(), students),
+				conditionSatisfaction: this.calculateGlobalConditionSatisfaction(new Map(), conditions)
+			},
+			finalEvaluation: {
+				score: optimizationResult.finalScore,
+				assignmentRate: this.calculateAssignmentRate(optimizationResult.improvedAssignment, students),
+				conditionSatisfaction: this.calculateGlobalConditionSatisfaction(optimizationResult.improvedAssignment, conditions)
+			},
+			improvement: {
+				score: optimizationResult.improvement,
+				percentage: optimizationResult.initialScore > 0 ?
+					(optimizationResult.improvement / optimizationResult.initialScore) * 100 : 0
+			},
+			performance: {
+				iterations: optimizationResult.iterations,
+				executionTime: optimizationResult.executionTime,
+				iterationsPerSecond: optimizationResult.executionTime > 0 ?
+					optimizationResult.iterations / (optimizationResult.executionTime / 1000) : 0
+			},
+			convergence: {
+				reached: optimizationResult.convergenceReached,
+				localOptimaAvoided: optimizationResult.localOptimaAvoided
+			}
+		};
+	}
+
+	// ==================== 局部最優避免輔助方法 ====================
+
+	/**
+	 * 評估局部最優的局部性
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 局部性評估結果
+	 */
+	assessLocalOptimaLocality(assignment, students, seats, conditions) {
+		// 簡化實現
+		return {
+			isLocalOptima: Math.random() > 0.7,
+			confidence: Math.random(),
+			factors: {
+				scoreStability: Math.random(),
+				strategyRepetition: Math.random(),
+				improvementRate: Math.random()
+			}
+		};
+	}
+
+	/**
+	 * 選擇避免策略
+	 * @param {Object} localityAssessment 局部性評估
+	 * @param {number} iteration 迭代次數
+	 * @returns {Object} 避免策略
+	 */
+	selectAvoidanceStrategy(localityAssessment, iteration) {
+		const strategies = [
+			{ name: 'random_perturbation', weight: 0.3 },
+			{ name: 'strategic_swap', weight: 0.3 },
+			{ name: 'partial_reset', weight: 0.2 },
+			{ name: 'temperature_increase', weight: 0.2 }
+		];
+
+		// 根據迭代次數調整策略權重
+		if (iteration > 30) {
+			strategies[2].weight += 0.1; // 增加部分重置的權重
+			strategies[3].weight += 0.1; // 增加溫度增加的權重
+		}
+
+		// 隨機選擇策略
+		const random = Math.random();
+		let cumulativeWeight = 0;
+		for (const strategy of strategies) {
+			cumulativeWeight += strategy.weight;
+			if (random <= cumulativeWeight) {
+				return strategy;
+			}
+		}
+
+		return strategies[0];
+	}
+
+	/**
+	 * 執行隨機擾動
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Map} 新的分配
+	 */
+	performRandomPerturbation(assignment, students, seats, conditions) {
+		const newAssignment = new Map(assignment);
+		const assignedStudents = Array.from(assignment.keys());
+
+		// 隨機交換一些學生
+		const swapCount = Math.floor(assignedStudents.length * 0.1); // 交換10%的學生
+		for (let i = 0; i < swapCount; i++) {
+			const index1 = Math.floor(Math.random() * assignedStudents.length);
+			const index2 = Math.floor(Math.random() * assignedStudents.length);
+
+			if (index1 !== index2) {
+				const student1 = assignedStudents[index1];
+				const student2 = assignedStudents[index2];
+				const seat1 = assignment.get(student1);
+				const seat2 = assignment.get(student2);
+
+				newAssignment.set(student1, seat2);
+				newAssignment.set(student2, seat1);
+			}
+		}
+
+		return newAssignment;
+	}
+
+	/**
+	 * 執行戰略交換
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Map} 新的分配
+	 */
+	performStrategicSwap(assignment, students, seats, conditions) {
+		const newAssignment = new Map(assignment);
+		const assignedStudents = Array.from(assignment.keys());
+
+		// 尋找最不滿意的學生進行交換
+		const studentSatisfactions = assignedStudents.map(studentId => ({
+			studentId,
+			satisfaction: this.calculateStudentSatisfaction(
+				students.find(s => s.id === studentId),
+				assignment.get(studentId),
+				assignment,
+				conditions
+			)
+		}));
+
+		studentSatisfactions.sort((a, b) => a.satisfaction - b.satisfaction);
+
+		// 交換最不滿意的學生
+		if (studentSatisfactions.length >= 2) {
+			const student1 = studentSatisfactions[0].studentId;
+			const student2 = studentSatisfactions[1].studentId;
+			const seat1 = assignment.get(student1);
+			const seat2 = assignment.get(student2);
+
+			newAssignment.set(student1, seat2);
+			newAssignment.set(student2, seat1);
+		}
+
+		return newAssignment;
+	}
+
+	/**
+	 * 執行部分重置
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Map} 新的分配
+	 */
+	performPartialReset(assignment, students, seats, conditions) {
+		const newAssignment = new Map(assignment);
+		const assignedStudents = Array.from(assignment.keys());
+
+		// 重置20%的學生分配
+		const resetCount = Math.floor(assignedStudents.length * 0.2);
+		const studentsToReset = assignedStudents.slice(0, resetCount);
+
+		for (const studentId of studentsToReset) {
+			newAssignment.delete(studentId);
+		}
+
+		return newAssignment;
+	}
+
+	/**
+	 * 執行溫度增加
+	 * @param {Map} assignment 分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Map} 新的分配
+	 */
+	performTemperatureIncrease(assignment, students, seats, conditions) {
+		// 溫度增加相當於增加隨機性
+		return this.performRandomPerturbation(assignment, students, seats, conditions);
+	}
+
+	/**
+	 * 計算擾動水平
+	 * @param {Map} originalAssignment 原始分配
+	 * @param {Map} newAssignment 新分配
+	 * @returns {number} 擾動水平
+	 */
+	calculatePerturbationLevel(originalAssignment, newAssignment) {
+		let changes = 0;
+		let total = originalAssignment.size;
+
+		for (const [studentId, seat] of originalAssignment) {
+			const newSeat = newAssignment.get(studentId);
+			if (!newSeat || newSeat.row !== seat.row || newSeat.col !== seat.col) {
+				changes++;
+			}
+		}
+
+		return total > 0 ? changes / total : 0;
+	}
+
+	// ==================== 收斂檢查輔助方法 ====================
+
+	/**
+	 * 檢查分數收斂
+	 * @param {Array} optimizationHistory 優化歷史
+	 * @returns {Object} 分數收斂結果
+	 */
+	checkScoreConvergence(optimizationHistory) {
+		if (optimizationHistory.length < 10) {
+			return { converged: false, confidence: 0 };
+		}
+
+		const recentScores = optimizationHistory.slice(-10).map(h => h.score);
+		const variance = this.calculateVariance(recentScores);
+		const mean = recentScores.reduce((sum, score) => sum + score, 0) / recentScores.length;
+
+		// 如果方差很小，認為已收斂
+		const converged = variance < 0.001;
+		const confidence = Math.max(0, 1 - variance * 1000);
+
+		return { converged, confidence };
+	}
+
+	/**
+	 * 檢查改進收斂
+	 * @param {Array} optimizationHistory 優化歷史
+	 * @returns {Object} 改進收斂結果
+	 */
+	checkImprovementConvergence(optimizationHistory) {
+		if (optimizationHistory.length < 10) {
+			return { converged: false, confidence: 0 };
+		}
+
+		const recentImprovements = optimizationHistory.slice(-10).map(h => h.improvement);
+		const positiveImprovements = recentImprovements.filter(imp => imp > 0).length;
+		const averageImprovement = recentImprovements.reduce((sum, imp) => sum + imp, 0) / recentImprovements.length;
+
+		// 如果最近很少有正改進，認為已收斂
+		const converged = positiveImprovements < 3 && averageImprovement < 0.001;
+		const confidence = Math.max(0, 1 - positiveImprovements / 10);
+
+		return { converged, confidence };
+	}
+
+	/**
+	 * 檢查策略收斂
+	 * @param {Array} optimizationHistory 優化歷史
+	 * @returns {Object} 策略收斂結果
+	 */
+	checkStrategyConvergence(optimizationHistory) {
+		if (optimizationHistory.length < 10) {
+			return { converged: false, confidence: 0 };
+		}
+
+		const recentStrategies = optimizationHistory.slice(-10).map(h => h.strategy);
+		const strategyCounts = new Map();
+
+		for (const strategy of recentStrategies) {
+			strategyCounts.set(strategy, (strategyCounts.get(strategy) || 0) + 1);
+		}
+
+		// 如果某個策略佔主導地位，認為已收斂
+		const maxCount = Math.max(...strategyCounts.values());
+		const converged = maxCount >= 7; // 70%以上使用同一策略
+		const confidence = maxCount / 10;
+
+		return { converged, confidence };
+	}
+
+	// ==================== 調整效果評估 ====================
+
+	/**
+	 * 調整效果測量 - 測量調整策略的實際效果
+	 * @param {Map} originalAssignment 原始分配
+	 * @param {Map} newAssignment 新分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @param {Object} adjustmentDetails 調整詳情
+	 * @returns {Object} 調整效果測量結果
+	 */
+	measureAdjustmentEffect(originalAssignment, newAssignment, students, seats, conditions, adjustmentDetails) {
+		const measurement = {
+			overallEffect: 0,
+			assignmentEffect: 0,
+			conditionEffect: 0,
+			studentSatisfactionEffect: 0,
+			conflictResolutionEffect: 0,
+			performanceMetrics: {},
+			details: {}
+		};
+
+		try {
+			// 1. 評估原始狀態
+			const originalEvaluation = this.evaluateGlobalState(originalAssignment, students, seats, conditions);
+
+			// 2. 評估新狀態
+			const newEvaluation = this.evaluateGlobalState(newAssignment, students, seats, conditions);
+
+			// 3. 計算各項效果
+			measurement.overallEffect = newEvaluation.overallScore - originalEvaluation.overallScore;
+			measurement.assignmentEffect = newEvaluation.assignmentRate - originalEvaluation.assignmentRate;
+			measurement.conditionEffect = newEvaluation.conditionSatisfaction - originalEvaluation.conditionSatisfaction;
+			measurement.studentSatisfactionEffect = newEvaluation.studentSatisfaction - originalEvaluation.studentSatisfaction;
+			measurement.conflictResolutionEffect = originalEvaluation.conflictCount - newEvaluation.conflictCount;
+
+			// 4. 計算性能指標
+			measurement.performanceMetrics = this.calculatePerformanceMetrics(
+				originalAssignment, newAssignment, adjustmentDetails
+			);
+
+			// 5. 生成詳細報告
+			measurement.details = {
+				originalState: originalEvaluation,
+				newState: newEvaluation,
+				changes: this.analyzeAssignmentChanges(originalAssignment, newAssignment),
+				adjustmentDetails
+			};
+
+		} catch (error) {
+			console.error('調整效果測量失敗:', error);
+			measurement.overallEffect = 0;
+		}
+
+		return measurement;
+	}
+
+	/**
+	 * 效果預測 - 預測調整策略的可能效果
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @returns {Object} 效果預測結果
+	 */
+	predictAdjustmentEffect(currentAssignment, students, seats, conditions, proposedAdjustment) {
+		const prediction = {
+			expectedEffect: 0,
+			confidence: 0,
+			riskLevel: 'low',
+			successProbability: 0,
+			potentialBenefits: [],
+			potentialRisks: [],
+			recommendations: []
+		};
+
+		try {
+			// 1. 模擬調整效果
+			const simulatedAssignment = this.simulateAdjustment(currentAssignment, proposedAdjustment);
+			const simulatedEffect = this.measureAdjustmentEffect(
+				currentAssignment, simulatedAssignment, students, seats, conditions, proposedAdjustment
+			);
+
+			prediction.expectedEffect = simulatedEffect.overallEffect;
+
+			// 2. 計算預測置信度
+			prediction.confidence = this.calculatePredictionConfidence(
+				proposedAdjustment, currentAssignment, students, seats, conditions
+			);
+
+			// 3. 評估風險水平
+			prediction.riskLevel = this.assessAdjustmentRisk(proposedAdjustment, currentAssignment, students, seats, conditions);
+
+			// 4. 計算成功概率
+			prediction.successProbability = this.calculateSuccessProbability(
+				proposedAdjustment, currentAssignment, students, seats, conditions
+			);
+
+			// 5. 識別潛在好處和風險
+			prediction.potentialBenefits = this.identifyPotentialBenefits(simulatedEffect);
+			prediction.potentialRisks = this.identifyPotentialRisks(proposedAdjustment, currentAssignment);
+
+			// 6. 生成建議
+			prediction.recommendations = this.generateAdjustmentRecommendations(
+				prediction, proposedAdjustment, currentAssignment
+			);
+
+		} catch (error) {
+			console.error('效果預測失敗:', error);
+			prediction.expectedEffect = 0;
+			prediction.confidence = 0;
+		}
+
+		return prediction;
+	}
+
+	/**
+	 * 效果比較 - 比較不同調整策略的效果
+	 * @param {Array} adjustmentStrategies 調整策略列表
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 效果比較結果
+	 */
+	compareAdjustmentEffects(adjustmentStrategies, currentAssignment, students, seats, conditions) {
+		const comparison = {
+			bestStrategy: null,
+			rankedStrategies: [],
+			comparisonMatrix: {},
+			recommendations: [],
+			details: {}
+		};
+
+		try {
+			// 1. 評估每個策略
+			const strategyEvaluations = [];
+			for (const strategy of adjustmentStrategies) {
+				const prediction = this.predictAdjustmentEffect(
+					currentAssignment, students, seats, conditions, strategy
+				);
+
+				strategyEvaluations.push({
+					strategy,
+					prediction,
+					score: this.calculateStrategyScore(prediction, strategy)
+				});
+			}
+
+			// 2. 排序策略
+			strategyEvaluations.sort((a, b) => b.score - a.score);
+			comparison.rankedStrategies = strategyEvaluations.map(evaluation => ({
+				strategy: evaluation.strategy,
+				score: evaluation.score,
+				prediction: evaluation.prediction
+			}));
+
+			// 3. 選擇最佳策略
+			if (strategyEvaluations.length > 0) {
+				comparison.bestStrategy = strategyEvaluations[0];
+			}
+
+			// 4. 生成比較矩陣
+			comparison.comparisonMatrix = this.generateComparisonMatrix(strategyEvaluations);
+
+			// 5. 生成建議
+			comparison.recommendations = this.generateComparisonRecommendations(comparison);
+
+			// 6. 詳細分析
+			comparison.details = {
+				totalStrategies: adjustmentStrategies.length,
+				averageScore: strategyEvaluations.reduce((sum, evaluation) => sum + evaluation.score, 0) / strategyEvaluations.length,
+				scoreRange: {
+					min: Math.min(...strategyEvaluations.map(evaluation => evaluation.score)),
+					max: Math.max(...strategyEvaluations.map(evaluation => evaluation.score))
+				}
+			};
+
+		} catch (error) {
+			console.error('效果比較失敗:', error);
+		}
+
+		return comparison;
+	}
+
+	/**
+	 * 效果報告 - 生成調整效果的詳細報告
+	 * @param {Object} adjustmentResult 調整結果
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 效果報告
+	 */
+	reportAdjustmentEffect(adjustmentResult, students, seats, conditions) {
+		const report = {
+			summary: {},
+			detailedAnalysis: {},
+			performanceMetrics: {},
+			recommendations: [],
+			timestamp: new Date().toISOString(),
+			metadata: {}
+		};
+
+		try {
+			// 1. 生成摘要
+			report.summary = this.generateEffectSummary(adjustmentResult);
+
+			// 2. 詳細分析
+			report.detailedAnalysis = this.generateDetailedAnalysis(adjustmentResult, students, seats, conditions);
+
+			// 3. 性能指標
+			report.performanceMetrics = this.generatePerformanceReport(adjustmentResult);
+
+			// 4. 建議
+			report.recommendations = this.generateEffectRecommendations(adjustmentResult);
+
+			// 5. 元數據
+			report.metadata = {
+				studentsCount: students.length,
+				seatsCount: seats.length,
+				conditionsCount: conditions.length,
+				adjustmentType: adjustmentResult.strategy || 'unknown',
+				executionTime: adjustmentResult.executionTime || 0
+			};
+
+		} catch (error) {
+			console.error('效果報告生成失敗:', error);
+			report.summary.error = error.message;
+		}
+
+		return report;
+	}
+
+	// ==================== 調整效果評估輔助方法 ====================
+
+	/**
+	 * 計算性能指標
+	 * @param {Map} originalAssignment 原始分配
+	 * @param {Map} newAssignment 新分配
+	 * @param {Object} adjustmentDetails 調整詳情
+	 * @returns {Object} 性能指標
+	 */
+	calculatePerformanceMetrics(originalAssignment, newAssignment, adjustmentDetails) {
+		return {
+			assignmentChanges: newAssignment.size - originalAssignment.size,
+			studentMovement: this.calculateStudentMovement(originalAssignment, newAssignment),
+			seatUtilizationChange: this.calculateSeatUtilizationChange(originalAssignment, newAssignment),
+			executionEfficiency: adjustmentDetails.executionTime || 0,
+			attemptEfficiency: adjustmentDetails.attempts || 0
+		};
+	}
+
+	/**
+	 * 分析分配變化
+	 * @param {Map} originalAssignment 原始分配
+	 * @param {Map} newAssignment 新分配
+	 * @returns {Object} 變化分析
+	 */
+	analyzeAssignmentChanges(originalAssignment, newAssignment) {
+		const changes = {
+			added: [],
+			removed: [],
+			modified: [],
+			totalChanges: 0
+		};
+
+		// 找出新增的分配
+		for (const [studentId, seat] of newAssignment) {
+			if (!originalAssignment.has(studentId)) {
+				changes.added.push({ studentId, seat });
+			}
+		}
+
+		// 找出移除的分配
+		for (const [studentId, seat] of originalAssignment) {
+			if (!newAssignment.has(studentId)) {
+				changes.removed.push({ studentId, seat });
+			}
+		}
+
+		// 找出修改的分配
+		for (const [studentId, newSeat] of newAssignment) {
+			const originalSeat = originalAssignment.get(studentId);
+			if (originalSeat && (originalSeat.row !== newSeat.row || originalSeat.col !== newSeat.col)) {
+				changes.modified.push({ studentId, originalSeat, newSeat });
+			}
+		}
+
+		changes.totalChanges = changes.added.length + changes.removed.length + changes.modified.length;
+
+		return changes;
+	}
+
+	/**
+	 * 模擬調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @returns {Map} 模擬的分配
+	 */
+	simulateAdjustment(currentAssignment, proposedAdjustment) {
+		const simulatedAssignment = new Map(currentAssignment);
+
+		// 根據調整類型執行模擬
+		switch (proposedAdjustment.type) {
+			case 'swap':
+				if (proposedAdjustment.student1 && proposedAdjustment.student2) {
+					const seat1 = simulatedAssignment.get(proposedAdjustment.student1);
+					const seat2 = simulatedAssignment.get(proposedAdjustment.student2);
+					if (seat1 && seat2) {
+						simulatedAssignment.set(proposedAdjustment.student1, seat2);
+						simulatedAssignment.set(proposedAdjustment.student2, seat1);
+					}
+				}
+				break;
+			case 'reassignment':
+				if (proposedAdjustment.student && proposedAdjustment.newSeat) {
+					simulatedAssignment.set(proposedAdjustment.student, proposedAdjustment.newSeat);
+				}
+				break;
+			case 'removal':
+				if (proposedAdjustment.student) {
+					simulatedAssignment.delete(proposedAdjustment.student);
+				}
+				break;
+		}
+
+		return simulatedAssignment;
+	}
+
+	/**
+	 * 計算預測置信度
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 置信度
+	 */
+	calculatePredictionConfidence(proposedAdjustment, currentAssignment, students, seats, conditions) {
+		let confidence = 0.5; // 基礎置信度
+
+		// 根據調整類型調整置信度
+		switch (proposedAdjustment.type) {
+			case 'swap':
+				confidence += 0.2; // 交換通常比較可預測
+				break;
+			case 'reassignment':
+				confidence += 0.1; // 重新分配中等可預測
+				break;
+			case 'removal':
+				confidence += 0.3; // 移除最可預測
+				break;
+		}
+
+		// 根據歷史數據調整置信度
+		const historicalConfidence = this.getHistoricalConfidence(proposedAdjustment.type);
+		confidence = (confidence + historicalConfidence) / 2;
+
+		return Math.min(1, Math.max(0, confidence));
+	}
+
+	/**
+	 * 評估調整風險
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {string} 風險水平
+	 */
+	assessAdjustmentRisk(proposedAdjustment, currentAssignment, students, seats, conditions) {
+		let riskScore = 0;
+
+		// 根據調整類型評估風險
+		switch (proposedAdjustment.type) {
+			case 'swap':
+				riskScore = 0.3; // 低風險
+				break;
+			case 'reassignment':
+				riskScore = 0.5; // 中等風險
+				break;
+			case 'removal':
+				riskScore = 0.7; // 高風險
+				break;
+		}
+
+		// 根據影響範圍調整風險
+		const affectedStudents = this.getAffectedStudents(proposedAdjustment, currentAssignment);
+		riskScore += affectedStudents.length * 0.1;
+
+		// 根據條件複雜度調整風險
+		const conditionComplexity = this.assessConditionComplexity(conditions);
+		riskScore += conditionComplexity * 0.2;
+
+		if (riskScore < 0.3) return 'low';
+		if (riskScore < 0.6) return 'medium';
+		return 'high';
+	}
+
+	/**
+	 * 計算成功概率
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 成功概率
+	 */
+	calculateSuccessProbability(proposedAdjustment, currentAssignment, students, seats, conditions) {
+		let probability = 0.5; // 基礎概率
+
+		// 根據調整類型調整概率
+		switch (proposedAdjustment.type) {
+			case 'swap':
+				probability += 0.2;
+				break;
+			case 'reassignment':
+				probability += 0.1;
+				break;
+			case 'removal':
+				probability += 0.3;
+				break;
+		}
+
+		// 根據可行性檢查調整概率
+		const feasibility = this.checkAdjustmentFeasibility(proposedAdjustment, currentAssignment, students, seats, conditions);
+		probability *= feasibility;
+
+		return Math.min(1, Math.max(0, probability));
+	}
+
+	/**
+	 * 識別潛在好處
+	 * @param {Object} simulatedEffect 模擬效果
+	 * @returns {Array} 潛在好處列表
+	 */
+	identifyPotentialBenefits(simulatedEffect) {
+		const benefits = [];
+
+		if (simulatedEffect.overallEffect > 0) {
+			benefits.push('整體分配質量提升');
+		}
+		if (simulatedEffect.assignmentEffect > 0) {
+			benefits.push('分配率改善');
+		}
+		if (simulatedEffect.conditionEffect > 0) {
+			benefits.push('條件滿足度提升');
+		}
+		if (simulatedEffect.studentSatisfactionEffect > 0) {
+			benefits.push('學生滿意度提升');
+		}
+		if (simulatedEffect.conflictResolutionEffect > 0) {
+			benefits.push('衝突解決');
+		}
+
+		return benefits;
+	}
+
+	/**
+	 * 識別潛在風險
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {Array} 潛在風險列表
+	 */
+	identifyPotentialRisks(proposedAdjustment, currentAssignment) {
+		const risks = [];
+
+		// 根據調整類型識別風險
+		switch (proposedAdjustment.type) {
+			case 'swap':
+				risks.push('可能影響其他學生的分配');
+				break;
+			case 'reassignment':
+				risks.push('可能導致新的衝突');
+				risks.push('可能影響學生的學習環境');
+				break;
+			case 'removal':
+				risks.push('學生可能無法重新分配');
+				risks.push('可能降低整體分配率');
+				break;
+		}
+
+		return risks;
+	}
+
+	/**
+	 * 生成調整建議
+	 * @param {Object} prediction 預測結果
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {Array} 建議列表
+	 */
+	generateAdjustmentRecommendations(prediction, proposedAdjustment, currentAssignment) {
+		const recommendations = [];
+
+		if (prediction.expectedEffect > 0.1) {
+			recommendations.push('建議執行此調整，預期效果良好');
+		} else if (prediction.expectedEffect > 0) {
+			recommendations.push('可以考慮執行此調整，但效果有限');
+		} else {
+			recommendations.push('不建議執行此調整，可能產生負面效果');
+		}
+
+		if (prediction.riskLevel === 'high') {
+			recommendations.push('建議在執行前進行更詳細的風險評估');
+		}
+
+		if (prediction.confidence < 0.7) {
+			recommendations.push('預測置信度較低，建議謹慎執行');
+		}
+
+		return recommendations;
+	}
+
+	/**
+	 * 計算策略分數
+	 * @param {Object} prediction 預測結果
+	 * @param {Object} strategy 策略對象
+	 * @returns {number} 策略分數
+	 */
+	calculateStrategyScore(prediction, strategy) {
+		let score = 0;
+
+		// 預期效果權重最高
+		score += prediction.expectedEffect * 0.4;
+
+		// 成功概率
+		score += prediction.successProbability * 0.3;
+
+		// 置信度
+		score += prediction.confidence * 0.2;
+
+		// 風險調整（風險越低分數越高）
+		const riskAdjustment = {
+			'low': 0.1,
+			'medium': 0.05,
+			'high': 0
+		};
+		score += riskAdjustment[prediction.riskLevel] || 0;
+
+		return Math.min(1, Math.max(0, score));
+	}
+
+	/**
+	 * 生成比較矩陣
+	 * @param {Array} strategyEvaluations 策略評估列表
+	 * @returns {Object} 比較矩陣
+	 */
+	generateComparisonMatrix(strategyEvaluations) {
+		const matrix = {};
+
+		for (let i = 0; i < strategyEvaluations.length; i++) {
+			const strategy1 = strategyEvaluations[i];
+			const strategy1Name = strategy1.strategy.name || `strategy_${i}`;
+			matrix[strategy1Name] = {};
+
+			for (let j = 0; j < strategyEvaluations.length; j++) {
+				const strategy2 = strategyEvaluations[j];
+				const strategy2Name = strategy2.strategy.name || `strategy_${j}`;
+				matrix[strategy1Name][strategy2Name] = {
+					scoreDifference: strategy1.score - strategy2.score,
+					effectivenessComparison: strategy1.prediction.expectedEffect - strategy2.prediction.expectedEffect,
+					riskComparison: this.compareRiskLevels(strategy1.prediction.riskLevel, strategy2.prediction.riskLevel)
+				};
+			}
+		}
+
+		return matrix;
+	}
+
+	/**
+	 * 生成比較建議
+	 * @param {Object} comparison 比較結果
+	 * @returns {Array} 建議列表
+	 */
+	generateComparisonRecommendations(comparison) {
+		const recommendations = [];
+
+		if (comparison.bestStrategy) {
+			recommendations.push(`推薦使用策略: ${comparison.bestStrategy.strategy.name || '未命名策略'}`);
+		}
+
+		if (comparison.rankedStrategies.length > 1) {
+			const scoreDifference = comparison.rankedStrategies[0].score - comparison.rankedStrategies[1].score;
+			if (scoreDifference < 0.1) {
+				recommendations.push('前幾個策略分數相近，建議根據具體情況選擇');
+			}
+		}
+
+		return recommendations;
+	}
+
+	/**
+	 * 生成效果摘要
+	 * @param {Object} adjustmentResult 調整結果
+	 * @returns {Object} 效果摘要
+	 */
+	generateEffectSummary(adjustmentResult) {
+		return {
+			success: adjustmentResult.success || false,
+			overallImprovement: adjustmentResult.improvement || 0,
+			executionTime: adjustmentResult.executionTime || 0,
+			attempts: adjustmentResult.attempts || 0,
+			strategy: adjustmentResult.strategy || 'unknown'
+		};
+	}
+
+	/**
+	 * 生成詳細分析
+	 * @param {Object} adjustmentResult 調整結果
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {Object} 詳細分析
+	 */
+	generateDetailedAnalysis(adjustmentResult, students, seats, conditions) {
+		return {
+			beforeState: this.evaluateGlobalState(new Map(), students, seats, conditions),
+			afterState: this.evaluateGlobalState(adjustmentResult.improvedAssignment || new Map(), students, seats, conditions),
+			changes: this.analyzeAssignmentChanges(new Map(), adjustmentResult.improvedAssignment || new Map())
+		};
+	}
+
+	/**
+	 * 生成性能報告
+	 * @param {Object} adjustmentResult 調整結果
+	 * @returns {Object} 性能報告
+	 */
+	generatePerformanceReport(adjustmentResult) {
+		return {
+			executionTime: adjustmentResult.executionTime || 0,
+			attempts: adjustmentResult.attempts || 0,
+			efficiency: adjustmentResult.executionTime > 0 ? adjustmentResult.attempts / (adjustmentResult.executionTime / 1000) : 0,
+			successRate: adjustmentResult.success ? 1 : 0
+		};
+	}
+
+	/**
+	 * 生成效果建議
+	 * @param {Object} adjustmentResult 調整結果
+	 * @returns {Array} 效果建議
+	 */
+	generateEffectRecommendations(adjustmentResult) {
+		const recommendations = [];
+
+		if (adjustmentResult.success) {
+			recommendations.push('調整成功，建議保持當前配置');
+		} else {
+			recommendations.push('調整失敗，建議嘗試其他策略');
+		}
+
+		if (adjustmentResult.executionTime > 5000) {
+			recommendations.push('執行時間較長，建議優化算法效率');
+		}
+
+		if (adjustmentResult.attempts > 50) {
+			recommendations.push('嘗試次數較多，建議改進策略選擇');
+		}
+
+		return recommendations;
+	}
+
+	// ==================== 輔助計算方法 ====================
+
+	/**
+	 * 計算學生移動
+	 * @param {Map} originalAssignment 原始分配
+	 * @param {Map} newAssignment 新分配
+	 * @returns {number} 學生移動數量
+	 */
+	calculateStudentMovement(originalAssignment, newAssignment) {
+		let movements = 0;
+		for (const [studentId, originalSeat] of originalAssignment) {
+			const newSeat = newAssignment.get(studentId);
+			if (newSeat && (originalSeat.row !== newSeat.row || originalSeat.col !== newSeat.col)) {
+				movements++;
+			}
+		}
+		return movements;
+	}
+
+	/**
+	 * 計算座位利用率變化
+	 * @param {Map} originalAssignment 原始分配
+	 * @param {Map} newAssignment 新分配
+	 * @returns {number} 利用率變化
+	 */
+	calculateSeatUtilizationChange(originalAssignment, newAssignment) {
+		return newAssignment.size - originalAssignment.size;
+	}
+
+	/**
+	 * 獲取歷史置信度
+	 * @param {string} adjustmentType 調整類型
+	 * @returns {number} 歷史置信度
+	 */
+	getHistoricalConfidence(adjustmentType) {
+		// 簡化實現，返回隨機置信度
+		return Math.random() * 0.3 + 0.5; // 0.5-0.8
+	}
+
+	/**
+	 * 獲取受影響的學生
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @returns {Array} 受影響的學生列表
+	 */
+	getAffectedStudents(proposedAdjustment, currentAssignment) {
+		const affected = [];
+
+		switch (proposedAdjustment.type) {
+			case 'swap':
+				if (proposedAdjustment.student1) affected.push(proposedAdjustment.student1);
+				if (proposedAdjustment.student2) affected.push(proposedAdjustment.student2);
+				break;
+			case 'reassignment':
+			case 'removal':
+				if (proposedAdjustment.student) affected.push(proposedAdjustment.student);
+				break;
+		}
+
+		return affected;
+	}
+
+	/**
+	 * 評估條件複雜度
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 複雜度分數
+	 */
+	assessConditionComplexity(conditions) {
+		return Math.min(1, conditions.length / 10); // 條件越多越複雜
+	}
+
+	/**
+	 * 檢查調整可行性
+	 * @param {Object} proposedAdjustment 提議的調整
+	 * @param {Map} currentAssignment 當前分配
+	 * @param {Array} students 學生列表
+	 * @param {Array} seats 座位列表
+	 * @param {Array} conditions 條件列表
+	 * @returns {number} 可行性分數
+	 */
+	checkAdjustmentFeasibility(proposedAdjustment, currentAssignment, students, seats, conditions) {
+		// 簡化實現，返回隨機可行性分數
+		return Math.random() * 0.4 + 0.6; // 0.6-1.0
+	}
+
+	/**
+	 * 比較風險水平
+	 * @param {string} risk1 風險水平1
+	 * @param {string} risk2 風險水平2
+	 * @returns {string} 比較結果
+	 */
+	compareRiskLevels(risk1, risk2) {
+		const riskOrder = { 'low': 1, 'medium': 2, 'high': 3 };
+		const order1 = riskOrder[risk1] || 2;
+		const order2 = riskOrder[risk2] || 2;
+
+		if (order1 < order2) return 'lower';
+		if (order1 > order2) return 'higher';
+		return 'same';
 	}
 }
 

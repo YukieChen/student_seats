@@ -49,7 +49,7 @@
   - [V] 遷移座位排序邏輯到 `SeatSelector.js`
   - [V] 遷移條件檢查邏輯到 `ConflictChecker.js`
 
-- [ ] **優化搜索策略**
+- [V] **優化搜索策略**
   - [V] 實現啟發式搜索 `heuristicSearch()`
   - [V] 實現深度優先搜索 `depthFirstSearch()`
   - [V] 實現廣度優先搜索 `breadthFirstSearch()`
@@ -77,23 +77,23 @@
   - [V] 實現策略學習 `learnFromStrategy()`
   - [V] 實現策略適應 `adaptStrategy()`
 
-- [ ] **優化調整優先級**
-  - [ ] 實現優先級計算 `calculatePriority()`
-  - [ ] 實現優先級排序 `sortByPriority()`
-  - [ ] 實現動態優先級調整 `adjustPriority()`
-  - [ ] 實現優先級衝突解決 `resolvePriorityConflict()`
+- [V] **優化調整優先級**
+  - [V] 實現優先級計算 `calculatePriority()`
+  - [V] 實現優先級排序 `sortByPriority()`
+  - [V] 實現動態優先級調整 `adjustPriority()`
+  - [V] 實現優先級衝突解決 `resolvePriorityConflict()`
 
-- [ ] **實現全局優化**
-  - [ ] 實現全局狀態評估 `evaluateGlobalState()`
-  - [ ] 實現全局優化算法 `globalOptimization()`
-  - [ ] 實現局部最優避免 `avoidLocalOptima()`
-  - [ ] 實現全局收斂檢查 `checkGlobalConvergence()`
+- [V] **實現全局優化**
+  - [V] 實現全局狀態評估 `evaluateGlobalState()`
+  - [V] 實現全局優化算法 `globalOptimization()`
+  - [V] 實現局部最優避免 `avoidLocalOptima()`
+  - [V] 實現全局收斂檢查 `checkGlobalConvergence()`
 
-- [ ] **添加調整效果評估**
-  - [ ] 實現調整效果測量 `measureAdjustmentEffect()`
-  - [ ] 實現效果預測 `predictAdjustmentEffect()`
-  - [ ] 實現效果比較 `compareAdjustmentEffects()`
-  - [ ] 實現效果報告 `reportAdjustmentEffect()`
+- [V] **添加調整效果評估**
+  - [V] 實現調整效果測量 `measureAdjustmentEffect()`
+  - [V] 實現效果預測 `predictAdjustmentEffect()`
+  - [V] 實現效果比較 `compareAdjustmentEffects()`
+  - [V] 實現效果報告 `reportAdjustmentEffect()`
 
 #### 1.3 改進條件檢查
 **主要檔案**: `assets/js/engines/ConflictChecker.js`
@@ -405,3 +405,131 @@
 - [ ] 保持向後兼容性
 - [ ] 實現漸進式部署
 - [ ] 準備回滾方案
+
+## 5. 檔案重構和優化
+
+### 5.1 拆分 DynamicAdjuster.js
+**當前狀態**: 4241 行，需要拆分為多個模組，每個檔案不超過 500 行
+
+**待完成項目**:
+- [ ] **創建 StrategyEvaluator.js**
+  - [ ] 遷移策略評估相關方法 `evaluateStrategy()`, `evaluateApplicability()`, `evaluateEffectiveness()`, `evaluateEfficiency()`, `evaluateRisk()`
+  - [ ] 遷移策略選擇方法 `selectOptimalStrategy()`
+  - [ ] 遷移策略評估輔助方法 `calculateOverallScore()`, `calculateConflictComplexity()`, `calculateConditionComplianceRate()`
+  - [ ] 實現策略評估器類別結構
+
+- [ ] **創建 StrategyLearner.js**
+  - [ ] 遷移策略學習相關方法 `learnFromStrategy()`, `adaptStrategy()`, `calculateHistoricalAdjustment()`, `calculateSituationalAdjustment()`
+  - [ ] 遷移策略性能更新方法 `updateStrategyPerformance()`, `analyzeSuccessPatterns()`, `updateStrategyAdaptation()`
+  - [ ] 遷移策略適應相關方法 `calculateStrategyPerformance()`, `shouldAdaptStrategy()`, `calculatePriorityAdjustment()`
+  - [ ] 實現策略學習器類別結構
+
+- [ ] **創建 PriorityOptimizer.js**
+  - [ ] 遷移優先級計算方法 `calculatePriority()`, `calculateStudentPriority()`, `calculateSeatPriority()`, `calculateConditionPriority()`, `calculateStrategyPriority()`
+  - [ ] 遷移優先級排序方法 `sortByPriority()`, `adjustPriority()`, `resolvePriorityConflict()`
+  - [ ] 遷移優先級輔助方法 `getItemPriority()`, `batchCalculatePriority()`, `getPriorityStatistics()`
+  - [ ] 實現優先級優化器類別結構
+
+- [ ] **創建 GlobalOptimizer.js**
+  - [ ] 遷移全局優化方法 `evaluateGlobalState()`, `globalOptimization()`, `avoidLocalOptima()`, `checkGlobalConvergence()`
+  - [ ] 遷移全局評估方法 `calculateAssignmentRate()`, `calculateGlobalConditionSatisfaction()`, `calculateGlobalStudentSatisfaction()`
+  - [ ] 遷移優化迭代方法 `performOptimizationIteration()`, `performSwapOptimization()`, `performReassignmentOptimization()`
+  - [ ] 實現全局優化器類別結構
+
+- [ ] **創建 EffectEvaluator.js**
+  - [ ] 遷移效果評估方法 `measureAdjustmentEffect()`, `predictAdjustmentEffect()`, `compareAdjustmentEffects()`, `reportAdjustmentEffect()`
+  - [ ] 遷移效果分析方法 `calculatePerformanceMetrics()`, `analyzeAssignmentChanges()`, `simulateAdjustment()`
+  - [ ] 遷移效果預測方法 `calculatePredictionConfidence()`, `assessAdjustmentRisk()`, `calculateSuccessProbability()`
+  - [ ] 實現效果評估器類別結構
+
+- [ ] **重構 DynamicAdjuster.js**
+  - [ ] 保留核心調整邏輯 `tryAdjustment()`, `selectStrategy()`, `executeAdjustment()`
+  - [ ] 保留基本調整策略 `executeDirectRemoval()`, `executeSmartSwap()`, `executeChainAdjustment()`
+  - [ ] 保留輔助方法 `getAvailableSeats()`, `canStudentSitHere()`, `checkCondition()`
+  - [ ] 整合所有子模組，確保檔案不超過 500 行
+
+### 5.2 拆分 SeatAssignmentEngine.js
+**當前狀態**: 4424 行，需要拆分為多個模組，每個檔案不超過 500 行
+
+**待完成項目**:
+- [ ] **創建 SearchStrategies.js**
+  - [ ] 遷移搜索策略方法 `heuristicSearch()`, `depthFirstSearch()`, `breadthFirstSearch()`, `hybridSearch()`
+  - [ ] 遷移搜索評估方法 `evaluateState()`, `calculateHeuristic()`, `selectBestMove()`
+  - [ ] 遷移搜索輔助方法 `evaluateProblemComplexity()`, `selectInitialStrategy()`, `executeStrategy()`
+  - [ ] 實現搜索策略器類別結構
+
+- [ ] **創建 PruningOptimizer.js**
+  - [ ] 遷移剪枝優化方法 `earlyTermination()`, `pruneInvalidPaths()`, `pruneDuplicateStates()`, `pruneSymmetries()`
+  - [ ] 遷移剪枝檢查方法 `checkUnsolvableCase()`, `checkLocalOptima()`, `checkProgressStagnation()`
+  - [ ] 遷移剪枝輔助方法 `recordInvalidPath()`, `generateStateKey()`, `areSeatsAdjacent()`
+  - [ ] 實現剪枝優化器類別結構
+
+- [ ] **創建 MultiStartSearcher.js**
+  - [ ] 遷移多起點搜索方法 `initializeMultipleStarts()`, `parallelSearch()`, `mergeParallelSearchResults()`, `selectBestParallelSolution()`
+  - [ ] 遷移起點生成方法 `generateHeuristicStartPoints()`, `generateDepthFirstStartPoints()`, `generateRandomStartPoints()`
+  - [ ] 遷移並行搜索方法 `createParallelSearchTasks()`, `executeParallelSearch()`, `executeSingleSearchTask()`
+  - [ ] 實現多起點搜索器類別結構
+
+- [ ] **創建 PerformanceMonitor.js**
+  - [ ] 遷移性能監控方法 `trackExecutionTime()`, `monitorMemoryUsage()`, `collectPerformanceMetrics()`, `getPerformanceMetrics()`
+  - [ ] 遷移性能分析方法 `calculateParallelEfficiency()`, `calculateSearchCoverage()`
+  - [ ] 遷移性能報告方法 `generateOptimizationReport()`, `generateErrorReport()`
+  - [ ] 實現性能監控器類別結構
+
+- [ ] **重構 SeatAssignmentEngine.js**
+  - [ ] 保留核心分配邏輯 `solveAssignment()`, `backtrackAssignment()`, `validateAssignment()`
+  - [ ] 保留基本輔助方法 `sortSeatsByPreference()`, `buildStudentToConditionsMap()`, `checkStudentGroupBindings()`
+  - [ ] 保留座位管理方法 `setSeatsConfig()`, `updateSeatsConfig()`, `getTotalValidSeats()`
+  - [ ] 整合所有子模組，確保檔案不超過 500 行
+
+### 5.3 優化檔案結構和依賴關係
+**待完成項目**:
+- [ ] **建立模組依賴圖**
+  - [ ] 分析所有模組間的依賴關係
+  - [ ] 建立清晰的模組層次結構
+  - [ ] 確保無循環依賴
+  - [ ] 優化依賴關係，減少耦合
+
+- [ ] **實現模組管理器**
+  - [ ] 創建 ModuleManager.js 統一管理所有模組
+  - [ ] 實現模組動態載入機制
+  - [ ] 實現模組依賴注入
+  - [ ] 實現模組生命週期管理
+
+- [ ] **優化導入導出結構**
+  - [ ] 統一所有模組的導入導出格式
+  - [ ] 實現按需載入機制
+  - [ ] 優化打包和壓縮
+  - [ ] 實現模組熱重載
+
+- [ ] **建立檔案命名規範**
+  - [ ] 制定統一的檔案命名規則
+  - [ ] 建立目錄結構規範
+  - [ ] 實現檔案自動分類
+  - [ ] 建立檔案文檔標準
+
+### 5.4 重構完成驗證
+**待完成項目**:
+- [ ] **檔案大小驗證**
+  - [ ] 確認所有檔案都不超過 500 行
+  - [ ] 檢查檔案大小分布是否合理
+  - [ ] 驗證模組功能完整性
+  - [ ] 確認無功能遺漏
+
+- [ ] **依賴關係驗證**
+  - [ ] 測試所有模組的導入導出
+  - [ ] 驗證模組間通信正常
+  - [ ] 確認無循環依賴
+  - [ ] 測試模組替換機制
+
+- [ ] **功能完整性測試**
+  - [ ] 運行所有現有測試
+  - [ ] 新增模組化測試
+  - [ ] 驗證性能無下降
+  - [ ] 確認功能無回歸
+
+- [ ] **文檔更新**
+  - [ ] 更新所有模組的 JSDoc 文檔
+  - [ ] 建立模組使用指南
+  - [ ] 更新架構文檔
+  - [ ] 建立重構記錄文檔
