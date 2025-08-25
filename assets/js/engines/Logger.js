@@ -1,5 +1,45 @@
-// Logger.js - 結構化日誌系統
+/**
+ * Logger.js - 結構化日誌系統
+ * 
+ * @fileoverview 結構化日誌系統的完整實現，提供多級別的日誌記錄功能
+ * @version 3.0.0
+ * @author Student Seats System Team
+ * @since 2023-11-01
+ */
+
+/**
+ * 結構化日誌系統類別
+ * 提供多級別的日誌記錄功能，支持控制台輸出和歷史記錄
+ * 
+ * @class Logger
+ * @description 日誌系統的主要類別，負責記錄和管理系統日誌
+ * 
+ * @example
+ * const logger = new Logger('INFO');
+ * 
+ * // 記錄不同級別的日誌
+ * logger.info('UserAction', 'User logged in', { userId: 123 });
+ * logger.error('SystemError', 'Database connection failed', { error: 'timeout' });
+ * 
+ * // 獲取日誌歷史
+ * const history = logger.getLogHistory();
+ * 
+ * @since 1.0.0
+ * @version 3.0.0
+ */
 class Logger {
+    /**
+     * 創建日誌記錄器實例
+     * 
+     * @param {string} [level='INFO'] - 日誌級別，可選值：ERROR, WARN, INFO, DEBUG, TRACE
+     * 
+     * @example
+     * const logger = new Logger('DEBUG');
+     * const errorLogger = new Logger('ERROR');
+     * 
+     * @throws {Error} 當日誌級別無效時拋出錯誤
+     * @since 1.0.0
+     */
     constructor(level = 'INFO') {
         this.level = level;
         this.levels = {
