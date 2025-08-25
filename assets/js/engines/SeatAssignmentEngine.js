@@ -288,9 +288,9 @@ class SeatAssignmentEngine {
         if (!this.seatsConfig) {
             return [];
         }
-        
+
         // 支持兩種屬性名：groupId 和 group
-        return this.seatsConfig.filter(seat => 
+        return this.seatsConfig.filter(seat =>
             (seat.groupId === groupId) || (seat.group === groupId)
         );
     }
@@ -304,7 +304,7 @@ class SeatAssignmentEngine {
         if (!this.seatsConfig) {
             return 0;
         }
-        
+
         // 返回所有有效座位數量（沒有 isValid 屬性的座位也認為是有效的）
         return this.seatsConfig.filter(seat => seat.isValid !== false).length;
     }
@@ -3239,10 +3239,10 @@ class SeatAssignmentEngine {
         }
 
         const startTime = Date.now();
-        this.logger.log('INFO', 'Engine', '開始多起點初始化', { 
-            studentCount: students.length, 
+        this.logger.log('INFO', 'Engine', '開始多起點初始化', {
+            studentCount: students.length,
             seatCount: seats.length,
-            options 
+            options
         });
 
         const {
@@ -3296,7 +3296,7 @@ class SeatAssignmentEngine {
             const limitedStartPoints = this.limitAndPrioritizeStartPoints(startPoints, startPointCount);
 
             const generationTime = Date.now() - startTime;
-            
+
             this.logger.log('INFO', 'Engine', '多起點初始化完成', {
                 totalGenerated: startPoints.length,
                 finalCount: limitedStartPoints.length,
@@ -3334,11 +3334,11 @@ class SeatAssignmentEngine {
      */
     generateHeuristicStartPoints(students, seats, conditions, studentScores, groupBindings, studentToConditionsMap, count) {
         const startPoints = [];
-        
+
         for (let i = 0; i < count; i++) {
             // 基於分數的學生排序變體
             const sortedStudents = this.studentScorer.sortStudentsByPriority(students, studentScores);
-            
+
             // 創建不同的學生排序變體
             let variantStudents;
             if (i === 0) {
@@ -3386,11 +3386,11 @@ class SeatAssignmentEngine {
      */
     generateDepthFirstStartPoints(students, seats, conditions, studentScores, groupBindings, studentToConditionsMap, count) {
         const startPoints = [];
-        
+
         for (let i = 0; i < count; i++) {
             // 基於座位偏好的排序變體
             const sortedSeats = this.sortSeatsByPreference(seats);
-            
+
             // 創建不同的座位排序變體
             let variantSeats;
             if (i === 0) {
@@ -3437,7 +3437,7 @@ class SeatAssignmentEngine {
      */
     generateRandomStartPoints(students, seats, conditions, studentScores, groupBindings, studentToConditionsMap, count) {
         const startPoints = [];
-        
+
         for (let i = 0; i < count; i++) {
             // 隨機化學生和座位
             const randomStudents = this.shuffleArray([...students]);
@@ -3473,7 +3473,7 @@ class SeatAssignmentEngine {
      */
     generateGroupOptimizedStartPoints(students, seats, conditions, studentScores, groupBindings, studentToConditionsMap, count) {
         const startPoints = [];
-        
+
         // 按群組組織學生
         const studentsByGroup = this.groupStudentsByGroup(students, groupBindings);
         const seatsByGroup = this.groupSeatsByGroup(seats);
@@ -3481,7 +3481,7 @@ class SeatAssignmentEngine {
         for (let i = 0; i < count; i++) {
             // 創建群組優化的學生排序
             const groupOptimizedStudents = this.createGroupOptimizedOrder(studentsByGroup, i);
-            
+
             // 創建群組優化的座位排序
             const groupOptimizedSeats = this.createGroupOptimizedSeatOrder(seatsByGroup, i);
 
@@ -3511,7 +3511,7 @@ class SeatAssignmentEngine {
     limitAndPrioritizeStartPoints(startPoints, maxCount) {
         // 按優先級排序
         startPoints.sort((a, b) => a.priority - b.priority);
-        
+
         // 限制數量
         return startPoints.slice(0, maxCount);
     }
@@ -3570,7 +3570,7 @@ class SeatAssignmentEngine {
      */
     groupStudentsByGroup(students, groupBindings) {
         const studentsByGroup = new Map();
-        
+
         for (const student of students) {
             const groupId = groupBindings.get(student.id) || 'default';
             if (!studentsByGroup.has(groupId)) {
@@ -3589,7 +3589,7 @@ class SeatAssignmentEngine {
      */
     groupSeatsByGroup(seats) {
         const seatsByGroup = new Map();
-        
+
         for (const seat of seats) {
             const groupId = seat.groupId || seat.group || 'default';
             if (!seatsByGroup.has(groupId)) {
@@ -3626,7 +3626,7 @@ class SeatAssignmentEngine {
                 const groups = Array.from(studentsByGroup.values());
                 const result = [];
                 let maxLength = Math.max(...groups.map(g => g.length));
-                
+
                 for (let i = 0; i < maxLength; i++) {
                     for (const group of groups) {
                         if (i < group.length) {
@@ -3667,7 +3667,7 @@ class SeatAssignmentEngine {
                 const groups = Array.from(seatsByGroup.values());
                 const result = [];
                 let maxLength = Math.max(...groups.map(g => g.length));
-                
+
                 for (let i = 0; i < maxLength; i++) {
                     for (const group of groups) {
                         if (i < group.length) {
@@ -3693,7 +3693,7 @@ class SeatAssignmentEngine {
         if (variantStudents.length === originalStudents.length) {
             const isReversed = variantStudents[0] === originalStudents[originalStudents.length - 1];
             const isShuffled = !isReversed && variantStudents[0] !== originalStudents[0];
-            
+
             if (isReversed) return '反向排序';
             if (isShuffled) return '隨機排序';
             return '原始排序';
@@ -3711,7 +3711,7 @@ class SeatAssignmentEngine {
         if (variantSeats.length === originalSeats.length) {
             const isReversed = variantSeats[0] === originalSeats[originalSeats.length - 1];
             const isShuffled = !isReversed && variantSeats[0] !== originalSeats[0];
-            
+
             if (isReversed) return '反向排序';
             if (isShuffled) return '隨機排序';
             return '原始排序';
@@ -3732,10 +3732,10 @@ class SeatAssignmentEngine {
      */
     async parallelSearch(students, seats, conditions, studentScores, groupBindings, studentToConditionsMap, options = {}) {
         const startTime = Date.now();
-        this.logger.log('INFO', 'Engine', '開始並行搜索', { 
-            studentCount: students.length, 
+        this.logger.log('INFO', 'Engine', '開始並行搜索', {
+            studentCount: students.length,
             seatCount: seats.length,
-            options 
+            options
         });
 
         const {
@@ -3748,7 +3748,7 @@ class SeatAssignmentEngine {
         try {
             // 0. 設置座位配置
             this.updateSeatsConfig(seats);
-            
+
             // 1. 初始化多個起點
             const startPointsResult = this.initializeMultipleStarts(
                 students, seats, conditions, studentScores, groupBindings, studentToConditionsMap, options
@@ -3760,16 +3760,16 @@ class SeatAssignmentEngine {
 
             // 2. 創建並行搜索任務
             const searchTasks = this.createParallelSearchTasks(
-                startPointsResult.startPoints, 
-                maxWorkers, 
+                startPointsResult.startPoints,
+                maxWorkers,
                 options
             );
 
             // 3. 執行並行搜索
             const searchResults = await this.executeParallelSearch(
-                searchTasks, 
-                timeout, 
-                enableProgressCallback, 
+                searchTasks,
+                timeout,
+                enableProgressCallback,
                 progressCallback
             );
 
@@ -3780,7 +3780,7 @@ class SeatAssignmentEngine {
             const bestSolution = this.selectBestParallelSolution(mergedResults);
 
             const totalTime = Date.now() - startTime;
-            
+
             this.logger.log('INFO', 'Engine', '並行搜索完成', {
                 totalStartPoints: startPointsResult.startPoints.length,
                 completedTasks: searchResults.length,
@@ -3827,7 +3827,7 @@ class SeatAssignmentEngine {
         for (let i = 0; i < startPoints.length; i += tasksPerWorker) {
             const workerStartPoints = startPoints.slice(i, i + tasksPerWorker);
             const taskId = `task_${i / tasksPerWorker + 1}`;
-            
+
             tasks.push({
                 id: taskId,
                 startPoints: workerStartPoints,
@@ -3883,7 +3883,7 @@ class SeatAssignmentEngine {
                 }
 
                 const taskResult = await this.executeSingleSearchTask(task, timeout);
-                
+
                 progressTracker.completed++;
                 progressTracker.inProgress--;
                 completedTasks++;
@@ -3941,7 +3941,7 @@ class SeatAssignmentEngine {
         });
 
         const totalTime = Date.now() - startTime;
-        
+
         this.logger.log('INFO', 'Engine', '並行搜索執行完成', {
             totalTasks: tasks.length,
             completed: progressTracker.completed,
@@ -3966,16 +3966,16 @@ class SeatAssignmentEngine {
             try {
                 // 檢查超時
                 if (Date.now() - taskStartTime > timeout) {
-                    this.logger.log('WARN', 'Engine', `任務 ${task.id} 超時`, { 
+                    this.logger.log('WARN', 'Engine', `任務 ${task.id} 超時`, {
                         startPointId: startPoint.id,
-                        elapsedTime: Date.now() - taskStartTime 
+                        elapsedTime: Date.now() - taskStartTime
                     });
                     break;
                 }
 
                 // 執行單個起點的搜索
                 const searchResult = await this.executeSearchFromStartPoint(startPoint, task.options);
-                
+
                 if (searchResult.success) {
                     results.push(searchResult);
                 }
@@ -4010,8 +4010,8 @@ class SeatAssignmentEngine {
             switch (startPoint.strategy) {
                 case 'heuristic':
                     searchResult = await this.heuristicSearch(
-                        startPoint.students, 
-                        startPoint.seats, 
+                        startPoint.students,
+                        startPoint.seats,
                         startPoint.conditions,
                         startPoint.studentScores,
                         startPoint.groupBindings,
@@ -4021,8 +4021,8 @@ class SeatAssignmentEngine {
                     break;
                 case 'depthFirst':
                     searchResult = await this.depthFirstSearch(
-                        startPoint.students, 
-                        startPoint.seats, 
+                        startPoint.students,
+                        startPoint.seats,
                         startPoint.conditions,
                         startPoint.studentScores,
                         startPoint.groupBindings,
@@ -4032,8 +4032,8 @@ class SeatAssignmentEngine {
                     break;
                 case 'breadthFirst':
                     searchResult = await this.breadthFirstSearch(
-                        startPoint.students, 
-                        startPoint.seats, 
+                        startPoint.students,
+                        startPoint.seats,
                         startPoint.conditions,
                         startPoint.studentScores,
                         startPoint.groupBindings,
@@ -4043,8 +4043,8 @@ class SeatAssignmentEngine {
                     break;
                 default:
                     searchResult = await this.hybridSearch(
-                        startPoint.students, 
-                        startPoint.seats, 
+                        startPoint.students,
+                        startPoint.seats,
                         startPoint.conditions,
                         startPoint.studentScores,
                         startPoint.groupBindings,
@@ -4175,24 +4175,24 @@ class SeatAssignmentEngine {
     pruneSymmetries(candidates, currentState, assignment) {
         // 參數驗證
         if (!Array.isArray(candidates)) {
-            this.logger.log('WARN', 'Engine', '對稱性剪枝收到無效候選列表', { 
+            this.logger.log('WARN', 'Engine', '對稱性剪枝收到無效候選列表', {
                 candidates: candidates,
-                type: typeof candidates 
+                type: typeof candidates
             });
             return [];
         }
 
         if (!currentState || !assignment) {
-            this.logger.log('WARN', 'Engine', '對稱性剪枝收到無效狀態或分配', { 
+            this.logger.log('WARN', 'Engine', '對稱性剪枝收到無效狀態或分配', {
                 hasCurrentState: !!currentState,
-                hasAssignment: !!assignment 
+                hasAssignment: !!assignment
             });
             return candidates;
         }
 
-        this.logger.log('DEBUG', 'Engine', '開始對稱性剪枝', { 
+        this.logger.log('DEBUG', 'Engine', '開始對稱性剪枝', {
             candidateCount: candidates.length,
-            assignmentSize: assignment.size 
+            assignmentSize: assignment.size
         });
 
         const startTime = Date.now();
@@ -4211,15 +4211,15 @@ class SeatAssignmentEngine {
 
                 // 生成對稱性模式
                 const symmetryPattern = this.generateSymmetryPattern(candidate, currentState, assignment);
-                
+
                 if (!symmetryPatterns.has(symmetryPattern)) {
                     symmetryPatterns.add(symmetryPattern);
                     prunedCandidates.push(candidate);
                 } else {
                     symmetryStats.prunedCandidates++;
-                    this.logger.log('DEBUG', 'Engine', '檢測到對稱候選', { 
+                    this.logger.log('DEBUG', 'Engine', '檢測到對稱候選', {
                         candidate: candidate.id,
-                        pattern: symmetryPattern 
+                        pattern: symmetryPattern
                     });
                 }
             }
@@ -4281,7 +4281,7 @@ class SeatAssignmentEngine {
     generatePositionSymmetryPattern(candidate, assignment) {
         const occupiedPositions = Array.from(assignment.values()).map(seat => `${seat.row},${seat.col}`);
         const candidatePosition = `${candidate.row},${candidate.col}`;
-        
+
         // 計算相對位置模式
         const relativePositions = occupiedPositions.map(pos => {
             const [row, col] = pos.split(',').map(Number);
@@ -4303,7 +4303,7 @@ class SeatAssignmentEngine {
      */
     generateGroupSymmetryPattern(candidate, currentState, assignment) {
         const candidateGroup = candidate.groupId || candidate.group || 'default';
-        
+
         // 統計各群組的分配情況
         const groupCounts = new Map();
         for (const seat of assignment.values()) {
@@ -4331,8 +4331,8 @@ class SeatAssignmentEngine {
      */
     generateAdjacencySymmetryPattern(candidate, assignment) {
         const adjacentSeats = this.getAdjacentSeats(candidate);
-        const occupiedAdjacent = adjacentSeats.filter(seat => 
-            Array.from(assignment.values()).some(assigned => 
+        const occupiedAdjacent = adjacentSeats.filter(seat =>
+            Array.from(assignment.values()).some(assigned =>
                 assigned.row === seat.row && assigned.col === seat.col
             )
         );
@@ -4360,7 +4360,7 @@ class SeatAssignmentEngine {
         // 檢查當前學生是否滿足特定條件
         if (currentState.currentStudent) {
             const studentConditions = this.getStudentConditions(currentState.currentStudent);
-            
+
             for (const condition of studentConditions) {
                 const conditionSatisfied = this.checkConditionSatisfaction(candidate, condition, assignment);
                 conditionPatterns.push(`${condition.type}:${conditionSatisfied ? '1' : '0'}`);
@@ -4418,6 +4418,478 @@ class SeatAssignmentEngine {
         return false;
     }
 
+    // ==================== 啟發式剪枝功能 ====================
+
+    /**
+     * 時間追蹤
+     * @returns {Object} 時間信息
+     */
+    trackTime() {
+        const currentTime = Date.now();
+        const elapsedTime = this.performanceMetrics.startTime > 0 ?
+            currentTime - this.performanceMetrics.startTime : 0;
+
+        return {
+            currentTime,
+            startTime: this.performanceMetrics.startTime,
+            elapsedTime,
+            timeout: this.options.timeout,
+            remainingTime: Math.max(0, this.options.timeout - elapsedTime),
+            timeProgress: elapsedTime / this.options.timeout
+        };
+    }
+
+    /**
+     * 檢查時間限制
+     * @returns {boolean} 是否超時
+     */
+    checkTimeLimit() {
+        const timeInfo = this.trackTime();
+        return timeInfo.elapsedTime >= this.options.timeout;
+    }
+
+    /**
+     * 時間預估
+     * @param {number} completedSteps 已完成步驟數
+     * @param {number} totalSteps 總步驟數
+     * @returns {Object} 時間預估結果
+     */
+    estimateTime(completedSteps, totalSteps) {
+        const timeInfo = this.trackTime();
+        const estimatedTotalTime = completedSteps > 0 ?
+            (timeInfo.elapsedTime / completedSteps) * totalSteps : 0;
+        const estimatedRemainingTime = Math.max(0, estimatedTotalTime - timeInfo.elapsedTime);
+
+        return {
+            estimatedTotalTime,
+            estimatedRemainingTime,
+            completionPercentage: completedSteps / totalSteps,
+            willTimeout: estimatedTotalTime > this.options.timeout
+        };
+    }
+
+    /**
+     * 時間報告
+     * @returns {Object} 時間報告
+     */
+    reportTime() {
+        const timeInfo = this.trackTime();
+        const timeEstimate = this.estimateTime(
+            this.performanceMetrics.executionSteps,
+            this.performanceMetrics.executionSteps * 2 // 粗略估計
+        );
+
+        return {
+            ...timeInfo,
+            ...timeEstimate,
+            executionSteps: this.performanceMetrics.executionSteps,
+            stepsPerSecond: timeInfo.elapsedTime > 0 ?
+                this.performanceMetrics.executionSteps / (timeInfo.elapsedTime / 1000) : 0
+        };
+    }
+
+    /**
+     * 候選數量計算
+     * @param {Array} students 學生列表
+     * @param {Array} seats 座位列表
+     * @param {Array} conditions 條件列表
+     * @returns {Object} 候選數量信息
+     */
+    calculateCandidateCount(students, seats, conditions) {
+        let totalCandidates = 0;
+        const candidateBreakdown = {
+            byStudent: new Map(),
+            bySeat: new Map(),
+            totalValid: 0,
+            totalInvalid: 0
+        };
+
+        for (const student of students) {
+            let studentCandidates = 0;
+            for (const seat of seats) {
+                // 檢查座位是否已被佔用
+                const isOccupied = Array.from(this.currentAssignment.values()).some(
+                    assignedSeat => assignedSeat.row === seat.row && assignedSeat.col === seat.col
+                );
+
+                if (!isOccupied) {
+                    // 檢查條件
+                    const tempAssignment = new Map(this.currentAssignment);
+                    tempAssignment.set(student.id, seat);
+
+                    let isValid = true;
+                    for (const condition of conditions) {
+                        if (!this.conflictChecker.checkCondition(condition, tempAssignment)) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+
+                    if (isValid) {
+                        studentCandidates++;
+                        totalCandidates++;
+                        candidateBreakdown.totalValid++;
+                    } else {
+                        candidateBreakdown.totalInvalid++;
+                    }
+                }
+            }
+            candidateBreakdown.byStudent.set(student.id, studentCandidates);
+        }
+
+        return {
+            totalCandidates,
+            averageCandidatesPerStudent: students.length > 0 ? totalCandidates / students.length : 0,
+            breakdown: candidateBreakdown
+        };
+    }
+
+    /**
+     * 候選數量限制
+     * @param {Array} candidates 候選列表
+     * @param {number} maxCandidates 最大候選數量
+     * @returns {Array} 限制後的候選列表
+     */
+    limitCandidateCount(candidates, maxCandidates = 10) {
+        if (candidates.length <= maxCandidates) {
+            return candidates;
+        }
+
+        // 按優先級排序並限制數量
+        const sortedCandidates = candidates.sort((a, b) => {
+            // 優先級排序：條件滿足度 > 學生分數 > 座位偏好
+            const aScore = (a.conditionScore || 0) * 0.5 + (a.studentScore || 0) * 0.3 + (a.seatScore || 0) * 0.2;
+            const bScore = (b.conditionScore || 0) * 0.5 + (b.studentScore || 0) * 0.3 + (b.seatScore || 0) * 0.2;
+            return bScore - aScore;
+        });
+
+        return sortedCandidates.slice(0, maxCandidates);
+    }
+
+    /**
+     * 候選選擇策略
+     * @param {Array} students 學生列表
+     * @param {Array} seats 座位列表
+     * @param {Array} conditions 條件列表
+     * @param {Object} options 選擇選項
+     * @returns {Array} 選擇的候選列表
+     */
+    selectCandidates(students, seats, conditions, options = {}) {
+        const {
+            maxCandidates = 10,
+            strategy = 'balanced', // 'balanced', 'aggressive', 'conservative'
+            useHeuristics = true
+        } = options;
+
+        const allCandidates = [];
+
+        for (const student of students) {
+            for (const seat of seats) {
+                // 檢查基本可用性
+                const isOccupied = Array.from(this.currentAssignment.values()).some(
+                    assignedSeat => assignedSeat.row === seat.row && assignedSeat.col === seat.col
+                );
+
+                if (isOccupied) continue;
+
+                // 檢查條件
+                const tempAssignment = new Map(this.currentAssignment);
+                tempAssignment.set(student.id, seat);
+
+                let conditionScore = 0;
+                let isValid = true;
+
+                for (const condition of conditions) {
+                    if (this.conflictChecker.checkCondition(condition, tempAssignment)) {
+                        conditionScore += 1;
+                    } else {
+                        isValid = false;
+                        break;
+                    }
+                }
+
+                if (isValid) {
+                    const candidate = {
+                        student,
+                        seat,
+                        conditionScore: conditionScore / conditions.length,
+                        studentScore: this.studentScorer.getStudentScore(student.id) || 0,
+                        seatScore: this.seatSelector.getSeatScore(seat) || 0
+                    };
+
+                    if (useHeuristics) {
+                        candidate.heuristicScore = this.calculateHeuristicScore(candidate, conditions);
+                    }
+
+                    allCandidates.push(candidate);
+                }
+            }
+        }
+
+        // 根據策略調整選擇
+        let selectedCandidates = allCandidates;
+
+        switch (strategy) {
+            case 'aggressive':
+                selectedCandidates = allCandidates.sort((a, b) =>
+                    (b.heuristicScore || 0) - (a.heuristicScore || 0)
+                ).slice(0, Math.min(maxCandidates, allCandidates.length));
+                break;
+            case 'conservative':
+                selectedCandidates = allCandidates.filter(c =>
+                    c.conditionScore > 0.8 && c.studentScore > 0.7
+                ).slice(0, maxCandidates);
+                break;
+            default: // balanced
+                selectedCandidates = this.limitCandidateCount(allCandidates, maxCandidates);
+        }
+
+        return selectedCandidates;
+    }
+
+    /**
+     * 候選評估
+     * @param {Array} candidates 候選列表
+     * @param {Array} conditions 條件列表
+     * @returns {Array} 評估後的候選列表
+     */
+    evaluateCandidates(candidates, conditions) {
+        return candidates.map(candidate => {
+            const evaluation = {
+                ...candidate,
+                overallScore: 0,
+                riskLevel: 'low',
+                confidence: 0,
+                details: {}
+            };
+
+            // 計算整體分數
+            const weights = {
+                condition: 0.4,
+                student: 0.3,
+                seat: 0.2,
+                heuristic: 0.1
+            };
+
+            evaluation.overallScore =
+                candidate.conditionScore * weights.condition +
+                candidate.studentScore * weights.student +
+                candidate.seatScore * weights.seat +
+                (candidate.heuristicScore || 0) * weights.heuristic;
+
+            // 評估風險等級
+            if (evaluation.overallScore < 0.3) {
+                evaluation.riskLevel = 'high';
+            } else if (evaluation.overallScore < 0.6) {
+                evaluation.riskLevel = 'medium';
+            }
+
+            // 計算置信度
+            evaluation.confidence = Math.min(1, evaluation.overallScore * 1.2);
+
+            // 詳細評估
+            evaluation.details = {
+                conditionCompliance: candidate.conditionScore,
+                studentPriority: candidate.studentScore,
+                seatQuality: candidate.seatScore,
+                heuristicValue: candidate.heuristicScore || 0
+            };
+
+            return evaluation;
+        }).sort((a, b) => b.overallScore - a.overallScore);
+    }
+
+    /**
+     * 計算啟發式分數
+     * @param {Object} candidate 候選
+     * @param {Array} conditions 條件列表
+     * @returns {number} 啟發式分數
+     */
+    calculateHeuristicScore(candidate, conditions) {
+        let score = 0;
+
+        // 基於條件滿足度的啟發式
+        score += candidate.conditionScore * 0.4;
+
+        // 基於學生優先級的啟發式
+        score += candidate.studentScore * 0.3;
+
+        // 基於座位質量的啟發式
+        score += candidate.seatScore * 0.2;
+
+        // 基於當前狀態的啟發式
+        const currentStateScore = this.evaluateCurrentState(candidate, conditions);
+        score += currentStateScore * 0.1;
+
+        return score;
+    }
+
+    /**
+     * 評估當前狀態
+     * @param {Object} candidate 候選
+     * @param {Array} conditions 條件列表
+     * @returns {number} 狀態分數
+     */
+    evaluateCurrentState(candidate, conditions) {
+        const tempAssignment = new Map(this.currentAssignment);
+        tempAssignment.set(candidate.student.id, candidate.seat);
+
+        // 計算條件滿足率
+        let satisfiedConditions = 0;
+        for (const condition of conditions) {
+            if (this.conflictChecker.checkCondition(condition, tempAssignment)) {
+                satisfiedConditions++;
+            }
+        }
+
+        return satisfiedConditions / conditions.length;
+    }
+
+    /**
+     * 深度調整
+     * @param {number} newDepth 新深度限制
+     */
+    adjustDepthLimit(newDepth) {
+        this.maxDepth = Math.max(1, newDepth);
+        this.logger.log('INFO', 'Engine', `調整深度限制為 ${this.maxDepth}`);
+    }
+
+    /**
+     * 深度報告
+     * @returns {Object} 深度報告
+     */
+    reportDepth() {
+        const depthInfo = this.trackDepth();
+        return {
+            ...depthInfo,
+            depthEfficiency: depthInfo.currentDepth / Math.max(this.performanceMetrics.executionSteps, 1),
+            depthUtilization: depthInfo.currentDepth / Math.max(depthInfo.maxDepth, 1),
+            recommendations: this.generateDepthRecommendations(depthInfo)
+        };
+    }
+
+    /**
+     * 生成深度建議
+     * @param {Object} depthInfo 深度信息
+     * @returns {Array} 建議列表
+     */
+    generateDepthRecommendations(depthInfo) {
+        const recommendations = [];
+
+        if (depthInfo.depthUtilization < 0.3) {
+            recommendations.push('考慮減少深度限制以提高效率');
+        } else if (depthInfo.depthUtilization > 0.9) {
+            recommendations.push('考慮增加深度限制以獲得更好的解');
+        }
+
+        if (depthInfo.depthEfficiency < 0.1) {
+            recommendations.push('深度搜索效率較低，考慮調整搜索策略');
+        }
+
+        return recommendations;
+    }
+
+    /**
+     * 終止條件檢查
+     * @returns {Object} 終止檢查結果
+     */
+    checkTerminationConditions() {
+        const timeCheck = this.checkTimeLimit();
+        const depthCheck = this.checkDepthLimit();
+        const stepCheck = this.performanceMetrics.executionSteps > 1000000;
+
+        return {
+            shouldTerminate: timeCheck || depthCheck || stepCheck,
+            reasons: {
+                timeout: timeCheck,
+                depthLimit: depthCheck,
+                stepLimit: stepCheck
+            },
+            details: {
+                timeInfo: this.trackTime(),
+                depthInfo: this.trackDepth(),
+                stepCount: this.performanceMetrics.executionSteps
+            }
+        };
+    }
+
+    /**
+     * 早期終止觸發
+     * @param {string} reason 終止原因
+     * @param {Object} details 終止詳情
+     */
+    triggerEarlyTermination(reason, details = {}) {
+        this.logger.log('WARN', 'Engine', `觸發早期終止: ${reason}`, details);
+
+        this.recordTerminationReason(reason, details);
+
+        // 更新性能指標
+        this.performanceMetrics.endTime = Date.now();
+        this.performanceMetrics.earlyTermination = {
+            reason,
+            details,
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    /**
+     * 終止原因記錄
+     * @param {string} reason 終止原因
+     * @param {Object} details 終止詳情
+     */
+    recordTerminationReason(reason, details = {}) {
+        if (!this.terminationHistory) {
+            this.terminationHistory = [];
+        }
+
+        this.terminationHistory.push({
+            timestamp: new Date().toISOString(),
+            reason,
+            details,
+            executionSteps: this.performanceMetrics.executionSteps,
+            currentDepth: this.currentDepth || 0
+        });
+    }
+
+    /**
+     * 終止統計
+     * @returns {Object} 終止統計
+     */
+    terminationStatistics() {
+        if (!this.terminationHistory) {
+            return {
+                totalTerminations: 0,
+                terminationReasons: {},
+                averageSteps: 0,
+                averageDepth: 0
+            };
+        }
+
+        const stats = {
+            totalTerminations: this.terminationHistory.length,
+            terminationReasons: {},
+            averageSteps: 0,
+            averageDepth: 0
+        };
+
+        let totalSteps = 0;
+        let totalDepth = 0;
+
+        for (const termination of this.terminationHistory) {
+            stats.terminationReasons[termination.reason] =
+                (stats.terminationReasons[termination.reason] || 0) + 1;
+            totalSteps += termination.executionSteps;
+            totalDepth += termination.currentDepth;
+        }
+
+        if (stats.totalTerminations > 0) {
+            stats.averageSteps = totalSteps / stats.totalTerminations;
+            stats.averageDepth = totalDepth / stats.totalTerminations;
+        }
+
+        return stats;
+    }
+
     /**
      * 清理資源
      */
@@ -4450,6 +4922,9 @@ class SeatAssignmentEngine {
             cacheHits: 0,
             stateComparisons: 0
         };
+
+        // 清理終止歷史
+        this.terminationHistory = [];
     }
 }
 

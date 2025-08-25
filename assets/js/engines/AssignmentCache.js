@@ -432,6 +432,756 @@ class AssignmentCache {
         this.specialSeatCache = compressedSpecialSeatCache;
     }
 
+    // ==================== 緩存優化功能 ====================
+
+    /**
+     * LRU清理策略
+     * @param {number} targetSize 目標緩存大小
+     */
+    lruCleanup(targetSize = this.maxCacheSize * 0.8) {
+        const cleanupStats = {
+            removedItems: 0,
+            freedMemory: 0,
+            strategy: 'LRU'
+        };
+
+        // 為每個緩存添加時間戳
+        const addTimestamps = (cache) => {
+            for (const [key, value] of cache.entries()) {
+                if (!value.timestamp) {
+                    value.timestamp = Date.now();
+                }
+            }
+        };
+
+        addTimestamps(this.conditionCache);
+        addTimestamps(this.seatScoreCache);
+        addTimestamps(this.specialSeatCache);
+
+        // 清理條件緩存
+        if (this.conditionCache.size > targetSize * 0.6) {
+            const sortedEntries = Array.from(this.conditionCache.entries())
+                .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            
+            const itemsToRemove = this.conditionCache.size - Math.floor(targetSize * 0.6);
+            for (let i = 0; i < itemsToRemove; i++) {
+                this.conditionCache.delete(sortedEntries[i][0]);
+                cleanupStats.removedItems++;
+            }
+        }
+
+        // 清理座位評分緩存
+        if (this.seatScoreCache.size > targetSize * 0.2) {
+            const sortedEntries = Array.from(this.seatScoreCache.entries())
+                .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            
+            const itemsToRemove = this.seatScoreCache.size - Math.floor(targetSize * 0.2);
+            for (let i = 0; i < itemsToRemove; i++) {
+                this.seatScoreCache.delete(sortedEntries[i][0]);
+                cleanupStats.removedItems++;
+            }
+        }
+
+        // 清理特殊座位緩存
+        if (this.specialSeatCache.size > targetSize * 0.2) {
+            const sortedEntries = Array.from(this.specialSeatCache.entries())
+                .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            
+            const itemsToRemove = this.specialSeatCache.size - Math.floor(targetSize * 0.2);
+            for (let i = 0; i < itemsToRemove; i++) {
+                this.specialSeatCache.delete(sortedEntries[i][0]);
+                cleanupStats.removedItems++;
+            }
+        }
+
+        return cleanupStats;
+    }
+
+    /**
+     * LFU清理策略
+     * @param {number} targetSize 目標緩存大小
+     */
+    lfuCleanup(targetSize = this.maxCacheSize * 0.8) {
+        const cleanupStats = {
+            removedItems: 0,
+            freedMemory: 0,
+            strategy: 'LFU'
+        };
+
+        // 為每個緩存項添加訪問計數
+        const addAccessCount = (cache) => {
+            for (const [key, value] of cache.entries()) {
+                if (!value.accessCount) {
+                    value.accessCount = 1;
+                }
+            }
+        };
+
+        addAccessCount(this.conditionCache);
+        addAccessCount(this.seatScoreCache);
+        addAccessCount(this.specialSeatCache);
+
+        // 清理條件緩存
+        if (this.conditionCache.size > targetSize * 0.6) {
+            const sortedEntries = Array.from(this.conditionCache.entries())
+                .sort((a, b) => a[1].accessCount - b[1].accessCount);
+            
+            const itemsToRemove = this.conditionCache.size - Math.floor(targetSize * 0.6);
+            for (let i = 0; i < itemsToRemove; i++) {
+                this.conditionCache.delete(sortedEntries[i][0]);
+                cleanupStats.removedItems++;
+            }
+        }
+
+        // 清理座位評分緩存
+        if (this.seatScoreCache.size > targetSize * 0.2) {
+            const sortedEntries = Array.from(this.seatScoreCache.entries())
+                .sort((a, b) => a[1].accessCount - b[1].accessCount);
+            
+            const itemsToRemove = this.seatScoreCache.size - Math.floor(targetSize * 0.2);
+            for (let i = 0; i < itemsToRemove; i++) {
+                this.seatScoreCache.delete(sortedEntries[i][0]);
+                cleanupStats.removedItems++;
+            }
+        }
+
+        // 清理特殊座位緩存
+        if (this.specialSeatCache.size > targetSize * 0.2) {
+            const sortedEntries = Array.from(this.specialSeatCache.entries())
+                .sort((a, b) => a[1].accessCount - b[1].accessCount);
+            
+            const itemsToRemove = this.specialSeatCache.size - Math.floor(targetSize * 0.2);
+            for (let i = 0; i < itemsToRemove; i++) {
+                this.specialSeatCache.delete(sortedEntries[i][0]);
+                cleanupStats.removedItems++;
+            }
+        }
+
+        return cleanupStats;
+    }
+
+    /**
+     * 自適應清理策略
+     * @param {number} targetSize 目標緩存大小
+     */
+    adaptiveCleanup(targetSize = this.maxCacheSize * 0.8) {
+        const stats = this.getDetailedCacheStats();
+        const hitRate = stats.conditionCache.hitRate;
+
+        // 根據命中率選擇清理策略
+        if (hitRate > 0.8) {
+            // 高命中率，使用保守的LRU策略
+            return this.lruCleanup(targetSize * 0.9);
+        } else if (hitRate > 0.5) {
+            // 中等命中率，使用標準LRU策略
+            return this.lruCleanup(targetSize);
+        } else {
+            // 低命中率，使用激進的LFU策略
+            return this.lfuCleanup(targetSize * 0.7);
+        }
+    }
+
+    /**
+     * 清理策略選擇
+     * @param {string} strategy 清理策略
+     * @param {number} targetSize 目標緩存大小
+     */
+    selectCleanupStrategy(strategy = 'adaptive', targetSize = this.maxCacheSize * 0.8) {
+        switch (strategy) {
+            case 'lru':
+                return this.lruCleanup(targetSize);
+            case 'lfu':
+                return this.lfuCleanup(targetSize);
+            case 'adaptive':
+            default:
+                return this.adaptiveCleanup(targetSize);
+        }
+    }
+
+    /**
+     * 預熱策略
+     * @param {Array} students 學生列表
+     * @param {Array} seats 座位列表
+     * @param {Array} conditions 條件列表
+     * @param {Object} options 預熱選項
+     */
+    prewarmStrategy(students, seats, conditions, options = {}) {
+        const {
+            strategy = 'selective', // 'selective', 'comprehensive', 'smart'
+            maxItems = 100,
+            priorityStudents = [],
+            prioritySeats = []
+        } = options;
+
+        const prewarmStats = {
+            strategy,
+            prewarmedItems: 0,
+            executionTime: 0,
+            memoryUsage: 0
+        };
+
+        const startTime = Date.now();
+
+        switch (strategy) {
+            case 'selective':
+                this.executeSelectivePrewarm(students, seats, conditions, maxItems, priorityStudents, prioritySeats);
+                break;
+            case 'comprehensive':
+                this.executeComprehensivePrewarm(students, seats, conditions, maxItems);
+                break;
+            case 'smart':
+                this.executeSmartPrewarm(students, seats, conditions, maxItems);
+                break;
+        }
+
+        prewarmStats.executionTime = Date.now() - startTime;
+        prewarmStats.prewarmedItems = this.conditionCache.size;
+        prewarmStats.memoryUsage = this.estimateMemoryUsage();
+
+        return prewarmStats;
+    }
+
+    /**
+     * 執行選擇性預熱
+     */
+    executeSelectivePrewarm(students, seats, conditions, maxItems, priorityStudents, prioritySeats) {
+        let prewarmedCount = 0;
+
+        // 優先預熱高優先級學生和座位
+        for (const studentId of priorityStudents) {
+            if (prewarmedCount >= maxItems) break;
+            
+            for (const seat of prioritySeats) {
+                if (prewarmedCount >= maxItems) break;
+                
+                const tempAssignment = new Map();
+                tempAssignment.set(studentId, seat);
+                
+                for (const condition of conditions) {
+                    if (condition.students.includes(studentId)) {
+                        const result = this.checkCondition(condition, tempAssignment);
+                        const cacheKey = this.generateCacheKey(
+                            studentId, 
+                            seat, 
+                            this.getAssignmentHash(tempAssignment)
+                        );
+                        
+                        if (this.conditionCache.size < this.maxCacheSize) {
+                            this.conditionCache.set(cacheKey, {
+                                result,
+                                timestamp: Date.now(),
+                                accessCount: 1,
+                                priority: 'high'
+                            });
+                            prewarmedCount++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 執行全面預熱
+     */
+    executeComprehensivePrewarm(students, seats, conditions, maxItems) {
+        let prewarmedCount = 0;
+
+        for (const student of students) {
+            if (prewarmedCount >= maxItems) break;
+            
+            for (const seat of seats) {
+                if (prewarmedCount >= maxItems) break;
+                
+                const tempAssignment = new Map();
+                tempAssignment.set(student.id, seat);
+                
+                for (const condition of conditions) {
+                    if (condition.students.includes(student.id)) {
+                        const result = this.checkCondition(condition, tempAssignment);
+                        const cacheKey = this.generateCacheKey(
+                            student.id, 
+                            seat, 
+                            this.getAssignmentHash(tempAssignment)
+                        );
+                        
+                        if (this.conditionCache.size < this.maxCacheSize) {
+                            this.conditionCache.set(cacheKey, {
+                                result,
+                                timestamp: Date.now(),
+                                accessCount: 1
+                            });
+                            prewarmedCount++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 執行智能預熱
+     */
+    executeSmartPrewarm(students, seats, conditions, maxItems) {
+        // 分析條件複雜度，優先預熱複雜條件
+        const conditionComplexity = this.analyzeConditionComplexity(conditions);
+        const sortedConditions = conditions.sort((a, b) => 
+            conditionComplexity[b.type] - conditionComplexity[a.type]
+        );
+
+        let prewarmedCount = 0;
+
+        for (const condition of sortedConditions) {
+            if (prewarmedCount >= maxItems) break;
+            
+            for (const studentId of condition.students) {
+                if (prewarmedCount >= maxItems) break;
+                
+                for (const seat of seats) {
+                    if (prewarmedCount >= maxItems) break;
+                    
+                    const tempAssignment = new Map();
+                    tempAssignment.set(studentId, seat);
+                    
+                    const result = this.checkCondition(condition, tempAssignment);
+                    const cacheKey = this.generateCacheKey(
+                        studentId, 
+                        seat, 
+                        this.getAssignmentHash(tempAssignment)
+                    );
+                    
+                    if (this.conditionCache.size < this.maxCacheSize) {
+                        this.conditionCache.set(cacheKey, {
+                            result,
+                            timestamp: Date.now(),
+                            accessCount: 1,
+                            complexity: conditionComplexity[condition.type]
+                        });
+                        prewarmedCount++;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 分析條件複雜度
+     */
+    analyzeConditionComplexity(conditions) {
+        const complexity = {
+            adjacent: 1,
+            not_adjacent: 1,
+            group_area: 2,
+            assign_group: 2,
+            adjacent_and_group: 3
+        };
+
+        return complexity;
+    }
+
+    /**
+     * 預熱執行
+     * @param {Array} students 學生列表
+     * @param {Array} seats 座位列表
+     * @param {Array} conditions 條件列表
+     * @param {Object} options 預熱選項
+     */
+    executePrewarm(students, seats, conditions, options = {}) {
+        return this.prewarmStrategy(students, seats, conditions, options);
+    }
+
+    /**
+     * 預熱效果評估
+     * @param {Object} prewarmStats 預熱統計
+     * @returns {Object} 效果評估結果
+     */
+    evaluatePrewarmEffect(prewarmStats) {
+        const currentStats = this.getDetailedCacheStats();
+        const effect = {
+            hitRateImprovement: 0,
+            performanceGain: 0,
+            memoryEfficiency: 0,
+            recommendations: []
+        };
+
+        // 計算命中率改善
+        const baselineHitRate = 0.5; // 假設基準命中率
+        effect.hitRateImprovement = currentStats.conditionCache.hitRate - baselineHitRate;
+
+        // 計算性能增益
+        effect.performanceGain = prewarmStats.prewarmedItems * 0.1; // 每項預熱項目節省0.1ms
+
+        // 計算記憶體效率
+        effect.memoryEfficiency = prewarmStats.prewarmedItems / prewarmStats.memoryUsage;
+
+        // 生成建議
+        if (effect.hitRateImprovement < 0.1) {
+            effect.recommendations.push('考慮調整預熱策略以提高命中率');
+        }
+        if (effect.memoryEfficiency < 0.5) {
+            effect.recommendations.push('考慮優化預熱項目的記憶體使用');
+        }
+        if (prewarmStats.executionTime > 1000) {
+            effect.recommendations.push('預熱時間過長，考慮減少預熱項目數量');
+        }
+
+        return effect;
+    }
+
+    /**
+     * 預熱優化
+     * @param {Object} prewarmStats 預熱統計
+     * @param {Object} effect 效果評估
+     * @returns {Object} 優化建議
+     */
+    optimizePrewarm(prewarmStats, effect) {
+        const optimization = {
+            suggestedStrategy: prewarmStats.strategy,
+            suggestedMaxItems: prewarmStats.prewarmedItems,
+            priorityAdjustments: [],
+            performancePredictions: {}
+        };
+
+        // 根據效果調整策略
+        if (effect.hitRateImprovement < 0.1) {
+            if (prewarmStats.strategy === 'selective') {
+                optimization.suggestedStrategy = 'smart';
+            } else if (prewarmStats.strategy === 'smart') {
+                optimization.suggestedStrategy = 'comprehensive';
+            }
+        }
+
+        // 調整最大項目數
+        if (effect.memoryEfficiency < 0.5) {
+            optimization.suggestedMaxItems = Math.floor(prewarmStats.prewarmedItems * 0.8);
+        } else if (effect.hitRateImprovement > 0.2) {
+            optimization.suggestedMaxItems = Math.floor(prewarmStats.prewarmedItems * 1.2);
+        }
+
+        // 性能預測
+        optimization.performancePredictions = {
+            estimatedHitRate: Math.min(1, effect.hitRateImprovement + 0.1),
+            estimatedMemoryUsage: optimization.suggestedMaxItems * 0.1,
+            estimatedExecutionTime: prewarmStats.executionTime * (optimization.suggestedMaxItems / prewarmStats.prewarmedItems)
+        };
+
+        return optimization;
+    }
+
+    /**
+     * 數據壓縮
+     * @param {any} data 要壓縮的數據
+     * @returns {Object} 壓縮結果
+     */
+    compressData(data) {
+        const compressionStats = {
+            originalSize: 0,
+            compressedSize: 0,
+            compressionRatio: 0,
+            compressionTime: 0
+        };
+
+        const startTime = Date.now();
+        const originalData = JSON.stringify(data);
+        compressionStats.originalSize = originalData.length;
+
+        // 簡單的數據壓縮：移除不必要的空格和屬性
+        const compressedData = JSON.stringify(data, (key, value) => {
+            if (value === null || value === undefined) return undefined;
+            if (typeof value === 'string' && value.trim() === '') return undefined;
+            return value;
+        });
+
+        compressionStats.compressedSize = compressedData.length;
+        compressionStats.compressionRatio = 1 - (compressionStats.compressedSize / compressionStats.originalSize);
+        compressionStats.compressionTime = Date.now() - startTime;
+
+        return {
+            compressedData,
+            stats: compressionStats
+        };
+    }
+
+    /**
+     * 數據解壓
+     * @param {string} compressedData 壓縮的數據
+     * @returns {any} 解壓後的數據
+     */
+    decompressData(compressedData) {
+        try {
+            return JSON.parse(compressedData);
+        } catch (error) {
+            console.error('數據解壓失敗:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 壓縮率優化
+     * @param {Object} compressionStats 壓縮統計
+     * @returns {Object} 優化建議
+     */
+    optimizeCompressionRatio(compressionStats) {
+        const optimization = {
+            currentRatio: compressionStats.compressionRatio,
+            suggestedImprovements: [],
+            targetRatio: 0.3
+        };
+
+        if (compressionStats.compressionRatio < 0.1) {
+            optimization.suggestedImprovements.push('考慮使用更高效的壓縮算法');
+        }
+        if (compressionStats.compressionTime > 100) {
+            optimization.suggestedImprovements.push('壓縮時間過長，考慮優化壓縮算法');
+        }
+        if (compressionStats.originalSize > 1000000) {
+            optimization.suggestedImprovements.push('數據量過大，考慮分批壓縮');
+        }
+
+        return optimization;
+    }
+
+    /**
+     * 壓縮性能監控
+     * @returns {Object} 監控結果
+     */
+    monitorCompressionPerformance() {
+        const stats = {
+            totalCompressions: 0,
+            averageCompressionTime: 0,
+            averageCompressionRatio: 0,
+            totalCompressedSize: 0,
+            totalOriginalSize: 0
+        };
+
+        // 這裡應該從實際的壓縮歷史中收集數據
+        // 暫時返回模擬數據
+        return stats;
+    }
+
+    /**
+     * 緩存命中率監控
+     * @returns {Object} 命中率監控結果
+     */
+    monitorHitRate() {
+        const stats = this.getDetailedCacheStats();
+        const hitRate = stats.conditionCache.hitRate;
+
+        return {
+            currentHitRate: hitRate,
+            hitRateTrend: this.calculateHitRateTrend(),
+            targetHitRate: 0.8,
+            performance: {
+                excellent: hitRate >= 0.8,
+                good: hitRate >= 0.6 && hitRate < 0.8,
+                poor: hitRate < 0.6
+            },
+            recommendations: this.generateHitRateRecommendations(hitRate)
+        };
+    }
+
+    /**
+     * 計算命中率趨勢
+     */
+    calculateHitRateTrend() {
+        // 這裡應該基於歷史數據計算趨勢
+        // 暫時返回穩定趨勢
+        return 'stable';
+    }
+
+    /**
+     * 生成命中率建議
+     */
+    generateHitRateRecommendations(hitRate) {
+        const recommendations = [];
+
+        if (hitRate < 0.5) {
+            recommendations.push('命中率過低，建議增加緩存大小');
+            recommendations.push('考慮優化緩存鍵生成策略');
+        } else if (hitRate < 0.7) {
+            recommendations.push('命中率中等，建議調整緩存清理策略');
+        } else if (hitRate >= 0.8) {
+            recommendations.push('命中率良好，可以考慮減少緩存大小以節省記憶體');
+        }
+
+        return recommendations;
+    }
+
+    /**
+     * 緩存大小監控
+     * @returns {Object} 大小監控結果
+     */
+    monitorCacheSize() {
+        const stats = this.getDetailedCacheStats();
+        const utilization = stats.totalSize / stats.maxSize;
+
+        return {
+            currentSize: stats.totalSize,
+            maxSize: stats.maxSize,
+            utilization: utilization,
+            performance: {
+                optimal: utilization >= 0.7 && utilization <= 0.9,
+                underutilized: utilization < 0.7,
+                overutilized: utilization > 0.9
+            },
+            recommendations: this.generateSizeRecommendations(utilization)
+        };
+    }
+
+    /**
+     * 生成大小建議
+     */
+    generateSizeRecommendations(utilization) {
+        const recommendations = [];
+
+        if (utilization < 0.5) {
+            recommendations.push('緩存利用率過低，可以考慮減少緩存大小');
+        } else if (utilization > 0.95) {
+            recommendations.push('緩存接近滿載，建議增加緩存大小或調整清理策略');
+        }
+
+        return recommendations;
+    }
+
+    /**
+     * 緩存性能監控
+     * @returns {Object} 性能監控結果
+     */
+    monitorCachePerformance() {
+        const hitRate = this.monitorHitRate();
+        const size = this.monitorCacheSize();
+        const compression = this.monitorCompressionPerformance();
+
+        return {
+            hitRate,
+            size,
+            compression,
+            overallPerformance: this.calculateOverallPerformance(hitRate, size, compression),
+            alerts: this.generatePerformanceAlerts(hitRate, size, compression)
+        };
+    }
+
+    /**
+     * 計算整體性能
+     */
+    calculateOverallPerformance(hitRate, size, compression) {
+        let score = 0;
+
+        // 命中率權重 50%
+        if (hitRate.currentHitRate >= 0.8) score += 50;
+        else if (hitRate.currentHitRate >= 0.6) score += 30;
+        else score += 10;
+
+        // 大小利用率權重 30%
+        if (size.utilization >= 0.7 && size.utilization <= 0.9) score += 30;
+        else if (size.utilization >= 0.5 && size.utilization <= 0.95) score += 20;
+        else score += 10;
+
+        // 壓縮效率權重 20%
+        if (compression.averageCompressionRatio >= 0.3) score += 20;
+        else if (compression.averageCompressionRatio >= 0.1) score += 10;
+        else score += 5;
+
+        return {
+            score,
+            grade: score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : 'D'
+        };
+    }
+
+    /**
+     * 生成性能警報
+     */
+    generatePerformanceAlerts(hitRate, size, compression) {
+        const alerts = [];
+
+        if (hitRate.currentHitRate < 0.5) {
+            alerts.push({
+                level: 'critical',
+                message: '緩存命中率過低，嚴重影響性能',
+                action: '立即檢查緩存策略'
+            });
+        }
+
+        if (size.utilization > 0.95) {
+            alerts.push({
+                level: 'warning',
+                message: '緩存接近滿載',
+                action: '考慮增加緩存大小或清理策略'
+            });
+        }
+
+        return alerts;
+    }
+
+    /**
+     * 緩存報告
+     * @returns {Object} 完整的緩存報告
+     */
+    generateCacheReport() {
+        const performance = this.monitorCachePerformance();
+        const detailedStats = this.getDetailedCacheStats();
+
+        return {
+            timestamp: new Date().toISOString(),
+            summary: {
+                totalItems: detailedStats.totalSize,
+                hitRate: detailedStats.conditionCache.hitRate,
+                performanceGrade: performance.overallPerformance.grade,
+                alerts: performance.alerts.length
+            },
+            performance,
+            detailedStats,
+            recommendations: this.generateOverallRecommendations(performance, detailedStats)
+        };
+    }
+
+    /**
+     * 生成整體建議
+     */
+    generateOverallRecommendations(performance, detailedStats) {
+        const recommendations = [];
+
+        // 基於命中率的建議
+        recommendations.push(...performance.hitRate.recommendations);
+
+        // 基於大小的建議
+        recommendations.push(...performance.size.recommendations);
+
+        // 基於整體性能的建議
+        if (performance.overallPerformance.score < 60) {
+            recommendations.push('整體性能較差，建議全面優化緩存策略');
+        }
+
+        return recommendations;
+    }
+
+    /**
+     * 估算記憶體使用量
+     */
+    estimateMemoryUsage() {
+        let totalMemory = 0;
+
+        // 估算條件緩存記憶體使用
+        for (const [key, value] of this.conditionCache.entries()) {
+            totalMemory += key.length * 2; // 字符串約2字節/字符
+            totalMemory += JSON.stringify(value).length * 2;
+        }
+
+        // 估算座位評分緩存記憶體使用
+        for (const [key, value] of this.seatScoreCache.entries()) {
+            totalMemory += key.length * 2;
+            totalMemory += JSON.stringify(value).length * 2;
+        }
+
+        // 估算特殊座位緩存記憶體使用
+        for (const [key, value] of this.specialSeatCache.entries()) {
+            totalMemory += key.length * 2;
+            totalMemory += JSON.stringify(value).length * 2;
+        }
+
+        return totalMemory;
+    }
+
     /**
      * 獲取詳細緩存統計信息
      */

@@ -43,7 +43,7 @@ describe('SeatAssignmentEngine', () => {
         engine.dispose();
     });
 
-    describe('基本功能測試', () => {
+    describe('testBasicFunctionality', () => {
         test('應該成功創建引擎實例', () => {
             expect(engine).toBeInstanceOf(SeatAssignmentEngine);
             expect(engine.options.timeout).toBe(5000);
@@ -79,9 +79,147 @@ describe('SeatAssignmentEngine', () => {
             expect(result.unassignedStudents).toBeDefined();
             expect(result.unassignedStudents.length).toBeGreaterThan(0);
         });
+
+        test('應該正確處理相鄰條件', async () => {
+            const adjacentConfig = {
+                students: [1, 2],
+                seats: [
+                    [
+                        { row: 0, col: 0, isValid: true, groupId: 'A', studentId: undefined },
+                        { row: 0, col: 1, isValid: true, groupId: 'A', studentId: undefined }
+                    ]
+                ],
+                conditions: [
+                    {
+                        type: 'adjacent',
+                        students: [[1, 2]]
+                    }
+                ]
+            };
+
+            const result = await engine.solveAssignment(adjacentConfig);
+            
+            expect(result.success).toBe(true);
+            
+            // 驗證學生1和2確實相鄰
+            const assignment = result.assignment;
+            const seat1 = findStudentSeat(assignment, 1);
+            const seat2 = findStudentSeat(assignment, 2);
+            
+            expect(areSeatsAdjacent(seat1, seat2)).toBe(true);
+        });
+
+        test('應該正確處理群組條件', async () => {
+            const groupConfig = {
+                students: [1, 2],
+                seats: [
+                    [
+                        { row: 0, col: 0, isValid: true, groupId: 'A', studentId: undefined },
+                        { row: 0, col: 1, isValid: true, groupId: 'B', studentId: undefined }
+                    ]
+                ],
+                conditions: [
+                    {
+                        type: 'assign_group',
+                        students: [[1]],
+                        group: 'A'
+                    }
+                ]
+            };
+
+            const result = await engine.solveAssignment(groupConfig);
+            
+            expect(result.success).toBe(true);
+            
+            // 驗證學生1坐在群組A的座位
+            const assignment = result.assignment;
+            const seat1 = findStudentSeat(assignment, 1);
+            
+            expect(seat1.groupId).toBe('A');
+        });
+
+        test('應該處理空配置', async () => {
+            const emptyConfig = {
+                students: [],
+                seats: [],
+                conditions: []
+            };
+
+            const result = await engine.solveAssignment(emptyConfig);
+            
+            expect(result.success).toBe(true);
+            expect(result.assignment).toBeDefined();
+        });
     });
 
-    describe('性能測試', () => {
+    describe('testErrorHandling', () => {
+        test('應該處理無效的配置', async () => {
+            const invalidConfig = {
+                students: null,
+                seats: [],
+                conditions: []
+            };
+
+            const result = await engine.solveAssignment(invalidConfig);
+            
+            expect(result.success).toBe(false);
+            expect(result.error).toBeDefined();
+        });
+
+        test('應該處理無效的座位配置', async () => {
+            const invalidSeatsConfig = {
+                students: [1, 2],
+                seats: null,
+                conditions: []
+            };
+
+            const result = await engine.solveAssignment(invalidSeatsConfig);
+            
+            expect(result.success).toBe(false);
+            expect(result.error).toBeDefined();
+        });
+
+        test('應該處理無效的條件配置', async () => {
+            const invalidConditionsConfig = {
+                students: [1, 2],
+                seats: [
+                    [{ row: 0, col: 0, isValid: true, groupId: 'A', studentId: undefined }]
+                ],
+                conditions: null
+            };
+
+            const result = await engine.solveAssignment(invalidConditionsConfig);
+            
+            expect(result.success).toBe(false);
+            expect(result.error).toBeDefined();
+        });
+
+        test('應該處理循環依賴條件', async () => {
+            const circularConfig = {
+                students: [1, 2, 3],
+                seats: [
+                    [
+                        { row: 0, col: 0, isValid: true, groupId: 'A', studentId: undefined },
+                        { row: 0, col: 1, isValid: true, groupId: 'A', studentId: undefined },
+                        { row: 1, col: 0, isValid: true, groupId: 'A', studentId: undefined }
+                    ]
+                ],
+                conditions: [
+                    {
+                        type: 'adjacent',
+                        students: [[1, 2], [2, 3], [3, 1]] // 循環依賴
+                    }
+                ]
+            };
+
+            const result = await engine.solveAssignment(circularConfig);
+            
+            expect(result.success).toBe(false);
+            expect(result.error).toBeDefined();
+        });
+    });
+
+    describe('testPerformance', () => {
         test('應該在超時時間內完成', async () => {
             const startTime = Date.now();
             const result = await engine.solveAssignment(mockConfig);
@@ -114,9 +252,7 @@ describe('SeatAssignmentEngine', () => {
             expect(result.success).toBe(false);
             expect(result.error).toBe('超時');
         });
-    });
 
-    describe('緩存測試', () => {
         test('應該正確使用緩存', async () => {
             const result1 = await engine.solveAssignment(mockConfig);
             const result2 = await engine.solveAssignment(mockConfig);
@@ -127,98 +263,62 @@ describe('SeatAssignmentEngine', () => {
             const cacheStats = engine.cache.getCacheStats();
             expect(cacheStats.hits).toBeGreaterThan(0);
         });
-    });
 
-    describe('錯誤處理測試', () => {
-        test('應該處理無效的配置', async () => {
-            const invalidConfig = {
-                students: null,
-                seats: [],
+        test('應該處理大規模數據', async () => {
+            const largeConfig = {
+                students: Array.from({length: 50}, (_, i) => i + 1),
+                seats: Array.from({length: 10}, (_, row) =>
+                    Array.from({length: 10}, (_, col) => ({
+                        row, col, isValid: true, groupId: 'A', studentId: undefined
+                    }))
+                ),
                 conditions: []
             };
 
-            const result = await engine.solveAssignment(invalidConfig);
-            
-            expect(result.success).toBe(false);
-            expect(result.error).toBeDefined();
-        });
-
-        test('應該處理空配置', async () => {
-            const emptyConfig = {
-                students: [],
-                seats: [],
-                conditions: []
-            };
-
-            const result = await engine.solveAssignment(emptyConfig);
+            const startTime = Date.now();
+            const result = await engine.solveAssignment(largeConfig);
+            const endTime = Date.now();
             
             expect(result.success).toBe(true);
-            expect(result.assignment).toBeDefined();
+            expect(endTime - startTime).toBeLessThan(30000); // 30秒內完成
         });
-    });
 
-    describe('條件檢查測試', () => {
-        test('應該正確處理相鄰條件', async () => {
-            const adjacentConfig = {
-                students: [1, 2],
-                seats: [
-                    [
-                        { row: 0, col: 0, isValid: true, groupId: 'A', studentId: undefined },
-                        { row: 0, col: 1, isValid: true, groupId: 'A', studentId: undefined }
-                    ]
-                ],
+        test('應該處理複雜條件組合', async () => {
+            const complexConditionsConfig = {
+                students: Array.from({length: 10}, (_, i) => i + 1),
+                seats: Array.from({length: 5}, (_, row) =>
+                    Array.from({length: 5}, (_, col) => ({
+                        row, col, isValid: true, groupId: 'A', studentId: undefined
+                    }))
+                ),
                 conditions: [
                     {
                         type: 'adjacent',
-                        students: [[1, 2]]
-                    }
-                ]
-            };
-
-            const result = await engine.solveAssignment(adjacentConfig);
-            
-            expect(result.success).toBe(true);
-            
-            // 驗證學生1和2確實相鄰
-            const assignment = result.assignment;
-            const seat1 = this.findStudentSeat(assignment, 1);
-            const seat2 = this.findStudentSeat(assignment, 2);
-            
-            expect(this.areSeatsAdjacent(seat1, seat2)).toBe(true);
-        });
-
-        test('應該正確處理群組條件', async () => {
-            const groupConfig = {
-                students: [1, 2],
-                seats: [
-                    [
-                        { row: 0, col: 0, isValid: true, groupId: 'A', studentId: undefined },
-                        { row: 0, col: 1, isValid: true, groupId: 'B', studentId: undefined }
-                    ]
-                ],
-                conditions: [
+                        students: [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+                    },
                     {
                         type: 'assign_group',
-                        students: [[1]],
+                        students: [[1, 3, 5]],
                         group: 'A'
+                    },
+                    {
+                        type: 'not_adjacent',
+                        students: [[2, 4], [6, 8]]
                     }
                 ]
             };
 
-            const result = await engine.solveAssignment(groupConfig);
+            const startTime = Date.now();
+            const result = await engine.solveAssignment(complexConditionsConfig);
+            const endTime = Date.now();
             
             expect(result.success).toBe(true);
-            
-            // 驗證學生1坐在群組A的座位
-            const assignment = result.assignment;
-            const seat1 = this.findStudentSeat(assignment, 1);
-            
-            expect(seat1.groupId).toBe('A');
+            expect(endTime - startTime).toBeLessThan(10000); // 10秒內完成
         });
     });
 
     // 輔助方法
-    findStudentSeat(assignment, studentId) {
+    function findStudentSeat(assignment, studentId) {
         for (const [student, seat] of assignment.entries()) {
             if (student === studentId) {
                 return seat;
@@ -227,7 +327,7 @@ describe('SeatAssignmentEngine', () => {
         return null;
     }
 
-    areSeatsAdjacent(seat1, seat2) {
+    function areSeatsAdjacent(seat1, seat2) {
         if (!seat1 || !seat2) return false;
         
         const rowDiff = Math.abs(seat1.row - seat2.row);
