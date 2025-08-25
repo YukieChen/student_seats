@@ -1,5 +1,5 @@
 // Logger.js - 結構化日誌系統
-export class Logger {
+class Logger {
     constructor(level = 'INFO') {
         this.level = level;
         this.levels = {
@@ -154,7 +154,7 @@ export class Logger {
      * 獲取性能統計
      */
     getPerformanceStats() {
-        const performanceLogs = this.logHistory.filter(entry => 
+        const performanceLogs = this.logHistory.filter(entry =>
             entry.message.includes('耗時')
         );
 
@@ -263,8 +263,169 @@ export class Logger {
      * 導出為文本格式
      */
     exportToText() {
-        return this.logHistory.map(entry => 
+        return this.logHistory.map(entry =>
             `[${entry.timestamp}] ${entry.level} [${entry.category}]: ${entry.message}`
         ).join('\n');
     }
+
+    // ==================== 性能監控增強 ====================
+
+    /**
+     * 監控記憶體使用情況
+     */
+    monitorMemory() {
+        if (typeof performance !== 'undefined' && performance.memory) {
+            const memory = performance.memory;
+            const memoryInfo = {
+                usedJSHeapSize: memory.usedJSHeapSize,
+                totalJSHeapSize: memory.totalJSHeapSize,
+                jsHeapSizeLimit: memory.jsHeapSizeLimit,
+                usagePercentage: (memory.usedJSHeapSize / memory.jsHeapSizeLimit * 100).toFixed(2)
+            };
+
+            this.info('Memory', '記憶體使用監控', memoryInfo);
+            return memoryInfo;
+        } else {
+            this.warn('Memory', '無法獲取記憶體信息 - performance.memory 不可用');
+            return null;
+        }
+    }
+
+    /**
+     * 監控CPU使用情況（基於時間測量）
+     */
+    monitorCPU() {
+        const startTime = performance.now();
+
+        // 執行一個小的計算任務來測量CPU性能
+        let result = 0;
+        for (let i = 0; i < 1000000; i++) {
+            result += Math.sqrt(i);
+        }
+
+        const endTime = performance.now();
+        const executionTime = endTime - startTime;
+
+        const cpuInfo = {
+            executionTime: executionTime.toFixed(2),
+            performance: executionTime < 10 ? 'excellent' : executionTime < 50 ? 'good' : 'poor'
+        };
+
+        this.info('CPU', 'CPU性能監控', cpuInfo);
+        return cpuInfo;
+    }
+
+    /**
+     * 監控網路請求情況
+     */
+    monitorNetwork() {
+        if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+            const navigationEntries = performance.getEntriesByType('navigation');
+            const resourceEntries = performance.getEntriesByType('resource');
+
+            const networkInfo = {
+                navigationCount: navigationEntries.length,
+                resourceCount: resourceEntries.length,
+                totalRequests: navigationEntries.length + resourceEntries.length,
+                averageLoadTime: this.calculateAverageLoadTime(resourceEntries)
+            };
+
+            this.info('Network', '網路請求監控', networkInfo);
+            return networkInfo;
+        } else {
+            this.warn('Network', '無法獲取網路信息 - performance API 不可用');
+            return null;
+        }
+    }
+
+    /**
+     * 計算平均載入時間
+     */
+    calculateAverageLoadTime(entries) {
+        if (entries.length === 0) return 0;
+
+        const totalTime = entries.reduce((sum, entry) => {
+            return sum + (entry.duration || 0);
+        }, 0);
+
+        return (totalTime / entries.length).toFixed(2);
+    }
+
+    // ==================== 日誌過濾功能 ====================
+
+    /**
+     * 按級別過濾日誌
+     */
+    filterByLevel(level) {
+        return this.logHistory.filter(entry => entry.level === level);
+    }
+
+    /**
+     * 按分類過濾日誌
+     */
+    filterByCategory(category) {
+        return this.logHistory.filter(entry => entry.category === category);
+    }
+
+    /**
+     * 按時間範圍過濾日誌
+     */
+    filterByTime(startTime, endTime) {
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+
+        return this.logHistory.filter(entry => {
+            const entryTime = new Date(entry.timestamp);
+            return entryTime >= start && entryTime <= end;
+        });
+    }
+
+    /**
+     * 按關鍵字過濾日誌
+     */
+    filterByKeyword(keyword) {
+        const lowerKeyword = keyword.toLowerCase();
+        return this.logHistory.filter(entry =>
+            entry.message.toLowerCase().includes(lowerKeyword) ||
+            entry.category.toLowerCase().includes(lowerKeyword) ||
+            (entry.data && JSON.stringify(entry.data).toLowerCase().includes(lowerKeyword))
+        );
+    }
+
+    /**
+     * 組合過濾日誌
+     */
+    filterLogs(options = {}) {
+        let filtered = this.logHistory;
+
+        if (options.level) {
+            filtered = filtered.filter(entry => entry.level === options.level);
+        }
+
+        if (options.category) {
+            filtered = filtered.filter(entry => entry.category === options.category);
+        }
+
+        if (options.startTime && options.endTime) {
+            const start = new Date(options.startTime);
+            const end = new Date(options.endTime);
+            filtered = filtered.filter(entry => {
+                const entryTime = new Date(entry.timestamp);
+                return entryTime >= start && entryTime <= end;
+            });
+        }
+
+        if (options.keyword) {
+            const lowerKeyword = options.keyword.toLowerCase();
+            filtered = filtered.filter(entry =>
+                entry.message.toLowerCase().includes(lowerKeyword) ||
+                entry.category.toLowerCase().includes(lowerKeyword) ||
+                (entry.data && JSON.stringify(entry.data).toLowerCase().includes(lowerKeyword))
+            );
+        }
+
+        return filtered;
+    }
 }
+
+module.exports = { Logger };

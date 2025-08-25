@@ -1,5 +1,5 @@
 // AssignmentCache.js - 結果緩存系統
-export class AssignmentCache {
+class AssignmentCache {
     constructor(options = {}) {
         this.conditionCache = new Map();
         this.specialSeatCache = new Map();
@@ -241,4 +241,218 @@ export class AssignmentCache {
             toRemove.forEach(([key]) => this.conditionCache.delete(key));
         }
     }
+
+    // ==================== 座位評分緩存 ====================
+
+    /**
+     * 緩存座位評分
+     */
+    cacheSeatScore(studentId, seat, score, assignmentHash) {
+        const cacheKey = `score-${studentId}-${seat.row}-${seat.col}-${assignmentHash}`;
+        
+        if (this.seatScoreCache.size < this.maxCacheSize) {
+            this.seatScoreCache.set(cacheKey, {
+                score,
+                timestamp: Date.now(),
+                assignmentHash
+            });
+        }
+    }
+
+    /**
+     * 獲取緩存的座位評分
+     */
+    getCachedSeatScore(studentId, seat, assignmentHash) {
+        const cacheKey = `score-${studentId}-${seat.row}-${seat.col}-${assignmentHash}`;
+        const cached = this.seatScoreCache.get(cacheKey);
+        
+        if (cached && cached.assignmentHash === assignmentHash) {
+            this.cacheHits++;
+            return cached.score;
+        }
+        
+        this.cacheMisses++;
+        return null;
+    }
+
+    /**
+     * 更新座位評分
+     */
+    updateSeatScore(studentId, seat, newScore, assignmentHash) {
+        const cacheKey = `score-${studentId}-${seat.row}-${seat.col}-${assignmentHash}`;
+        const existing = this.seatScoreCache.get(cacheKey);
+        
+        if (existing) {
+            existing.score = newScore;
+            existing.timestamp = Date.now();
+        } else {
+            this.cacheSeatScore(studentId, seat, newScore, assignmentHash);
+        }
+    }
+
+    // ==================== 特殊座位緩存 ====================
+
+    /**
+     * 緩存特殊座位判斷
+     */
+    cacheSpecialSeat(seat, isSpecial, reason = '') {
+        const cacheKey = `special-${seat.row}-${seat.col}`;
+        
+        if (this.specialSeatCache.size < this.maxCacheSize) {
+            this.specialSeatCache.set(cacheKey, {
+                isSpecial,
+                reason,
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    /**
+     * 獲取緩存的特殊座位信息
+     */
+    getCachedSpecialSeat(seat) {
+        const cacheKey = `special-${seat.row}-${seat.col}`;
+        const cached = this.specialSeatCache.get(cacheKey);
+        
+        if (cached) {
+            this.cacheHits++;
+            return cached;
+        }
+        
+        this.cacheMisses++;
+        return null;
+    }
+
+    // ==================== 緩存優化 ====================
+
+    /**
+     * 智能清理策略
+     */
+    smartCleanup() {
+        const now = Date.now();
+        const maxAge = 5 * 60 * 1000; // 5分鐘
+
+        // 清理過期的條件緩存
+        for (const [key, value] of this.conditionCache.entries()) {
+            if (value.timestamp && (now - value.timestamp) > maxAge) {
+                this.conditionCache.delete(key);
+            }
+        }
+
+        // 清理過期的座位評分緩存
+        for (const [key, value] of this.seatScoreCache.entries()) {
+            if ((now - value.timestamp) > maxAge) {
+                this.seatScoreCache.delete(key);
+            }
+        }
+
+        // 清理過期的特殊座位緩存
+        for (const [key, value] of this.specialSeatCache.entries()) {
+            if ((now - value.timestamp) > maxAge) {
+                this.specialSeatCache.delete(key);
+            }
+        }
+
+        // 如果緩存仍然過大，執行基本清理
+        this.cleanup();
+    }
+
+    /**
+     * 緩存預熱
+     */
+    prewarmCache(students, seats, commonConditions) {
+        // 預先計算一些常見的條件檢查結果
+        for (const student of students) {
+            for (const seat of seats) {
+                // 預熱條件檢查緩存
+                const tempAssignment = new Map();
+                tempAssignment.set(student.id, seat);
+                
+                for (const condition of commonConditions) {
+                    if (condition.students.includes(student.id)) {
+                        const result = this.checkCondition(condition, tempAssignment);
+                        const cacheKey = this.generateCacheKey(
+                            student.id, 
+                            seat, 
+                            this.getAssignmentHash(tempAssignment)
+                        );
+                        
+                        if (this.conditionCache.size < this.maxCacheSize) {
+                            this.conditionCache.set(cacheKey, {
+                                result,
+                                timestamp: Date.now()
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 緩存壓縮
+     */
+    compressCache() {
+        // 合併相似的緩存項
+        const compressedConditionCache = new Map();
+        const compressedSeatScoreCache = new Map();
+        const compressedSpecialSeatCache = new Map();
+
+        // 壓縮條件緩存 - 合併相同結果的項
+        const conditionGroups = new Map();
+        for (const [key, value] of this.conditionCache.entries()) {
+            const resultKey = JSON.stringify(value);
+            if (!conditionGroups.has(resultKey)) {
+                conditionGroups.set(resultKey, []);
+            }
+            conditionGroups.get(resultKey).push(key);
+        }
+
+        // 保留每個組的代表項
+        for (const [resultKey, keys] of conditionGroups.entries()) {
+            if (keys.length > 0) {
+                const representativeKey = keys[0];
+                compressedConditionCache.set(representativeKey, JSON.parse(resultKey));
+            }
+        }
+
+        // 壓縮座位評分緩存
+        for (const [key, value] of this.seatScoreCache.entries()) {
+            compressedSeatScoreCache.set(key, value);
+        }
+
+        // 壓縮特殊座位緩存
+        for (const [key, value] of this.specialSeatCache.entries()) {
+            compressedSpecialSeatCache.set(key, value);
+        }
+
+        // 替換原有緩存
+        this.conditionCache = compressedConditionCache;
+        this.seatScoreCache = compressedSeatScoreCache;
+        this.specialSeatCache = compressedSpecialSeatCache;
+    }
+
+    /**
+     * 獲取詳細緩存統計信息
+     */
+    getDetailedCacheStats() {
+        return {
+            conditionCache: {
+                size: this.conditionCache.size,
+                hits: this.cacheHits,
+                misses: this.cacheMisses,
+                hitRate: this.cacheHits / (this.cacheHits + this.cacheMisses)
+            },
+            seatScoreCache: {
+                size: this.seatScoreCache.size
+            },
+            specialSeatCache: {
+                size: this.specialSeatCache.size
+            },
+            totalSize: this.conditionCache.size + this.seatScoreCache.size + this.specialSeatCache.size,
+            maxSize: this.maxCacheSize
+        };
+    }
 }
+
+module.exports = { AssignmentCache };

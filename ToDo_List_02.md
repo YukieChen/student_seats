@@ -43,36 +43,36 @@
 **主要檔案**: `assets/js/engines/SeatAssignmentEngine.js`
 
 **待完成項目**:
-- [ ] **將現有邏輯遷移到新架構**
-  - [ ] 遷移 `algorithms.js` 中的 `solveAssignment()` 函數邏輯
-  - [ ] 遷移學生排序邏輯到 `StudentScorer.js`
-  - [ ] 遷移座位排序邏輯到 `SeatSelector.js`
-  - [ ] 遷移條件檢查邏輯到 `ConflictChecker.js`
+- [V] **將現有邏輯遷移到新架構**
+  - [V] 遷移 `algorithms.js` 中的 `solveAssignment()` 函數邏輯
+  - [V] 遷移學生排序邏輯到 `StudentScorer.js`
+  - [V] 遷移座位排序邏輯到 `SeatSelector.js`
+  - [V] 遷移條件檢查邏輯到 `ConflictChecker.js`
 
 - [ ] **優化搜索策略**
-  - [ ] 實現啟發式搜索 `heuristicSearch()`
-  - [ ] 實現深度優先搜索 `depthFirstSearch()`
-  - [ ] 實現廣度優先搜索 `breadthFirstSearch()`
-  - [ ] 實現混合搜索策略 `hybridSearch()`
+  - [V] 實現啟發式搜索 `heuristicSearch()`
+  - [V] 實現深度優先搜索 `depthFirstSearch()`
+  - [V] 實現廣度優先搜索 `breadthFirstSearch()`
+  - [V] 實現混合搜索策略 `hybridSearch()`
 
-- [ ] **實現剪枝優化**
-  - [ ] 實現早期終止 `earlyTermination()`
-  - [ ] 實現無效路徑剪枝 `pruneInvalidPaths()`
-  - [ ] 實現重複狀態剪枝 `pruneDuplicateStates()`
-  - [ ] 實現對稱性剪枝 `pruneSymmetries()`
+- [V] **實現剪枝優化**
+  - [V] 實現早期終止 `earlyTermination()`
+  - [V] 實現無效路徑剪枝 `pruneInvalidPaths()`
+  - [V] 實現重複狀態剪枝 `pruneDuplicateStates()`
+  - [V] 實現對稱性剪枝 `pruneSymmetries()`
 
-- [ ] **添加多起點搜索**
-  - [ ] 實現多起點初始化 `initializeMultipleStarts()`
-  - [ ] 實現並行搜索 `parallelSearch()`
-  - [ ] 實現結果合併 `mergeResults()`
-  - [ ] 實現最佳解選擇 `selectBestSolution()`
+- [V] **添加多起點搜索**
+  - [V] 實現多起點初始化 `initializeMultipleStarts()`
+  - [V] 實現並行搜索 `parallelSearch()`
+  - [V] 實現結果合併 `mergeResults()`
+  - [V] 實現最佳解選擇 `selectBestSolution()`
 
 #### 1.2 優化動態調整策略
 **主要檔案**: `assets/js/engines/DynamicAdjuster.js`
 
 **待完成項目**:
 - [ ] **實現自適應策略選擇**
-  - [ ] 實現策略評估 `evaluateStrategy()`
+  - [V] 實現策略評估 `evaluateStrategy()`
   - [ ] 實現策略選擇算法 `selectOptimalStrategy()`
   - [ ] 實現策略學習 `learnFromStrategy()`
   - [ ] 實現策略適應 `adaptStrategy()`
