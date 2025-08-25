@@ -99,29 +99,29 @@
 **主要檔案**: `assets/js/engines/ConflictChecker.js`
 
 **待完成項目**:
-- [ ] **優化條件檢查性能**
-  - [ ] 實現條件預處理 `preprocessConditions()`
-  - [ ] 實現條件緩存 `cacheConditions()`
-  - [ ] 實現條件索引 `indexConditions()`
-  - [ ] 實現條件優化 `optimizeConditions()`
+- [V] **優化條件檢查性能**
+  - [V] 實現條件預處理 `preprocessConditions()`
+  - [V] 實現條件緩存 `cacheConditions()`
+  - [V] 實現條件索引 `indexConditions()`
+  - [V] 實現條件優化 `optimizeConditions()`
 
-- [ ] **實現條件預處理**
-  - [ ] 實現條件簡化 `simplifyConditions()`
-  - [ ] 實現條件合併 `mergeConditions()`
-  - [ ] 實現條件分解 `decomposeConditions()`
-  - [ ] 實現條件驗證 `validateConditions()`
+- [V] **實現條件預處理**
+  - [V] 實現條件簡化 `simplifyConditions()`
+  - [V] 實現條件合併 `mergeConditions()`
+  - [V] 實現條件分解 `decomposeConditions()`
+  - [V] 實現條件驗證 `validateConditions()`
 
-- [ ] **添加條件緩存**
-  - [ ] 實現條件結果緩存 `cacheConditionResults()`
-  - [ ] 實現緩存失效處理 `invalidateCache()`
-  - [ ] 實現緩存更新 `updateCache()`
-  - [ ] 實現緩存統計 `cacheStatistics()`
+- [V] **添加條件緩存**
+  - [V] 實現條件結果緩存 `cacheConditionResults()`
+  - [V] 實現緩存失效處理 `invalidateCache()`
+  - [V] 實現緩存更新 `updateCache()`
+  - [V] 實現緩存統計 `cacheStatistics()`
 
-- [ ] **實現條件簡化**
-  - [ ] 實現冗餘條件移除 `removeRedundantConditions()`
-  - [ ] 實現矛盾條件檢測 `detectContradictoryConditions()`
-  - [ ] 實現條件等價性檢查 `checkConditionEquivalence()`
-  - [ ] 實現條件優化建議 `suggestConditionOptimization()`
+- [V] **實現條件簡化**
+  - [V] 實現冗餘條件移除 `removeRedundantConditions()`
+  - [V] 實現矛盾條件檢測 `detectContradictoryConditions()`
+  - [V] 實現條件等價性檢查 `checkConditionEquivalence()`
+  - [V] 實現條件優化建議 `suggestConditionOptimization()`
 
 ### 2. 性能優化
 
