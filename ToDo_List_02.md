@@ -71,11 +71,11 @@
 **主要檔案**: `assets/js/engines/DynamicAdjuster.js`
 
 **待完成項目**:
-- [ ] **實現自適應策略選擇**
+- [V] **實現自適應策略選擇**
   - [V] 實現策略評估 `evaluateStrategy()`
-  - [ ] 實現策略選擇算法 `selectOptimalStrategy()`
-  - [ ] 實現策略學習 `learnFromStrategy()`
-  - [ ] 實現策略適應 `adaptStrategy()`
+  - [V] 實現策略選擇算法 `selectOptimalStrategy()`
+  - [V] 實現策略學習 `learnFromStrategy()`
+  - [V] 實現策略適應 `adaptStrategy()`
 
 - [ ] **優化調整優先級**
   - [ ] 實現優先級計算 `calculatePriority()`
