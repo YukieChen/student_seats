@@ -1,4 +1,10 @@
 // DynamicAdjuster.js - 動態調整器（重構版）
+const { StrategyEvaluator } = require('./StrategyEvaluator.js');
+const { StrategyLearner } = require('./StrategyLearner.js');
+const { PriorityOptimizer } = require('./PriorityOptimizer.js');
+const { GlobalOptimizer } = require('./GlobalOptimizer.js');
+const { EffectEvaluator } = require('./EffectEvaluator.js');
+
 class DynamicAdjuster {
 	constructor(options = {}) {
 		this.options = {
@@ -452,11 +458,35 @@ class DynamicAdjuster {
 		this.globalOptimizer.clearOptimizationHistory();
 		this.effectEvaluator.clearEvaluationHistory();
 	}
+
+	/**
+	 * 清理資源
+	 */
+	dispose() {
+		this.reset();
+		
+		// 清理子模組（如果存在相應方法）
+		if (this.strategyEvaluator && typeof this.strategyEvaluator.dispose === 'function') {
+			this.strategyEvaluator.dispose();
+		}
+		if (this.strategyLearner && typeof this.strategyLearner.dispose === 'function') {
+			this.strategyLearner.dispose();
+		}
+		if (this.priorityOptimizer && typeof this.priorityOptimizer.dispose === 'function') {
+			this.priorityOptimizer.dispose();
+		}
+		if (this.globalOptimizer && typeof this.globalOptimizer.dispose === 'function') {
+			this.globalOptimizer.dispose();
+		}
+		if (this.effectEvaluator && typeof this.effectEvaluator.dispose === 'function') {
+			this.effectEvaluator.dispose();
+		}
+	}
 }
 
 // 導出模組
 if (typeof module !== 'undefined' && module.exports) {
-	module.exports = DynamicAdjuster;
+	module.exports = { DynamicAdjuster };
 } else if (typeof window !== 'undefined') {
 	window.DynamicAdjuster = DynamicAdjuster;
 }

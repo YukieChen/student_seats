@@ -1,15 +1,15 @@
 // Integration.test.js - 整合測試
-import { SeatAssignmentEngine } from '../SeatAssignmentEngine.js';
-import { ConflictChecker } from '../ConflictChecker.js';
-import { StudentScorer } from '../StudentScorer.js';
-import { SeatSelector } from '../SeatSelector.js';
-import { DynamicAdjuster } from '../DynamicAdjuster.js';
-import { StateValidator } from '../StateValidator.js';
-import { AssignmentCache } from '../AssignmentCache.js';
-import { Logger } from '../Logger.js';
-import { CycleDetector } from '../CycleDetector.js';
-import { TransactionalAssignment } from '../TransactionalAssignment.js';
-import { AssignmentExplainer } from '../AssignmentExplainer.js';
+const { SeatAssignmentEngine } = require('../SeatAssignmentEngine.js');
+const { ConflictChecker } = require('../ConflictChecker.js');
+const { StudentScorer } = require('../StudentScorer.js');
+const { SeatSelector } = require('../SeatSelector.js');
+const { DynamicAdjuster } = require('../DynamicAdjuster.js');
+const { StateValidator } = require('../StateValidator.js');
+const { AssignmentCache } = require('../AssignmentCache.js');
+const { Logger } = require('../Logger.js');
+const { CycleDetector } = require('../CycleDetector.js');
+const { TransactionalAssignment } = require('../TransactionalAssignment.js');
+const { AssignmentExplainer } = require('../AssignmentExplainer.js');
 
 // 簡單測試函數
 function runTests() {

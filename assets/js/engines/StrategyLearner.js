@@ -544,7 +544,7 @@ class StrategyLearner {
 
 // 導出模組
 if (typeof module !== 'undefined' && module.exports) {
-	module.exports = StrategyLearner;
+	module.exports = { StrategyLearner };
 } else if (typeof window !== 'undefined') {
 	window.StrategyLearner = StrategyLearner;
 }

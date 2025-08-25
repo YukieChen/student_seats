@@ -806,7 +806,7 @@ class PriorityOptimizer {
 
 // 導出模組
 if (typeof module !== 'undefined' && module.exports) {
-	module.exports = PriorityOptimizer;
+	module.exports = { PriorityOptimizer };
 } else if (typeof window !== 'undefined') {
 	window.PriorityOptimizer = PriorityOptimizer;
 }

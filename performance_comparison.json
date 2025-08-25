@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-08-25T16:19:37.301Z",
+  "nodeVersion": "v22.16.0",
+  "platform": "win32",
+  "comparisonResults": [
+    {
+      "scale": "小規模",
+      "original": {
+        "testName": "原始演算法 - 小規模",
+        "executionTime": 1.3002,
+        "memoryUsed": 46664,
+        "success": false,
+        "assignmentCount": 73,
+        "cacheHitRate": 0
+      },
+      "optimized": {
+        "testName": "優化演算法 - 小規模",
+        "executionTime": 5.8533,
+        "memoryUsed": 475432,
+        "success": true,
+        "assignmentCount": 100,
+        "cacheHitRate": 0
+      },
+      "speedImprovement": -350.18458698661743,
+      "memoryReduction": -918.8410766329504
+    },
+    {
+      "scale": "中等規模",
+      "original": {
+        "testName": "原始演算法 - 中等規模",
+        "executionTime": 1.1016,
+        "memoryUsed": -643744,
+        "success": false,
+        "assignmentCount": 353,
+        "cacheHitRate": 0
+      },
+      "optimized": {
+        "testName": "優化演算法 - 中等規模",
+        "executionTime": 27.0405,
+        "memoryUsed": 2020024,
+        "success": true,
+        "assignmentCount": 500,
+        "cacheHitRate": 0
+      },
+      "speedImprovement": -2354.6568627450984,
+      "memoryReduction": 413.79306059551624
+    },
+    {
+      "scale": "大規模",
+      "original": {
+        "testName": "原始演算法 - 大規模",
+        "executionTime": 0.5156,
+        "memoryUsed": 338528,
+        "success": false,
+        "assignmentCount": 703,
+        "cacheHitRate": 0
+      },
+      "optimized": {
+        "testName": "優化演算法 - 大規模",
+        "executionTime": 53.1871,
+        "memoryUsed": 1040,
+        "success": true,
+        "assignmentCount": 1000,
+        "cacheHitRate": 0
+      },
+      "speedImprovement": -10215.574088440653,
+      "memoryReduction": 99.69278759807165
+    },
+    {
+      "scale": "超大規模",
+      "original": {
+        "testName": "原始演算法 - 超大規模",
+        "executionTime": 1.0002,
+        "memoryUsed": 659104,
+        "success": false,
+        "assignmentCount": 1403,
+        "cacheHitRate": 0
+      },
+      "optimized": {
+        "testName": "優化演算法 - 超大規模",
+        "executionTime": 200.5405,
+        "memoryUsed": 140352,
+        "success": true,
+        "assignmentCount": 2000,
+        "cacheHitRate": 0
+      },
+      "speedImprovement": -19950.039992001603,
+      "memoryReduction": 78.70563674321504
+    }
+  ],
+  "summary": {
+    "avgSpeedImprovement": -8217.613882543494,
+    "avgMemoryReduction": -81.66239792403685,
+    "avgCacheHitRate": 0
+  }
+}

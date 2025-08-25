@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-08-25T15:09:37.806Z",
+  "nodeVersion": "v22.16.0",
+  "platform": "win32",
+  "results": [
+    {
+      "testName": "小規模數據測試 (100學生)",
+      "executionTime": 0.688,
+      "memoryUsed": 40544,
+      "success": false,
+      "assignmentCount": 73
+    },
+    {
+      "testName": "中等規模數據測試 (500學生)",
+      "executionTime": 0.523,
+      "memoryUsed": 158816,
+      "success": false,
+      "assignmentCount": 353
+    },
+    {
+      "testName": "大規模數據測試 (1000學生)",
+      "executionTime": 1.528,
+      "memoryUsed": 147336,
+      "success": false,
+      "assignmentCount": 703
+    },
+    {
+      "testName": "超大規模數據測試 (2000學生)",
+      "executionTime": 2.7377,
+      "memoryUsed": 651720,
+      "success": false,
+      "assignmentCount": 1403
+    }
+  ],
+  "summary": {
+    "avgExecutionTime": 1.3691749999999998,
+    "avgMemoryUsage": 249604,
+    "successRate": 0
+  }
+}

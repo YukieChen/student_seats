@@ -558,6 +558,23 @@ class SeatSelector {
             max: Math.round(max * 100) / 100
         };
     }
+
+    /**
+     * 更新座位配置
+     * @param {Array} seatsConfig 新的座位配置
+     */
+    updateSeatsConfig(seatsConfig) {
+        this.seatsConfig = seatsConfig || [];
+        this.seatScores.clear(); // 清除舊的評分緩存
+    }
+
+    /**
+     * 設置座位配置
+     * @param {Array} seatsConfig 座位配置
+     */
+    setSeatsConfig(seatsConfig) {
+        this.updateSeatsConfig(seatsConfig);
+    }
 }
 
 module.exports = { SeatSelector };

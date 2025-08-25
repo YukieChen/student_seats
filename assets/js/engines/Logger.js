@@ -426,6 +426,39 @@ class Logger {
 
         return filtered;
     }
+
+    /**
+     * 獲取日誌歷史
+     * @returns {Array} 日誌歷史記錄
+     */
+    getLogs() {
+        return [...this.logHistory];
+    }
+
+    /**
+     * 獲取日誌統計
+     * @returns {Object} 日誌統計信息
+     */
+    getLogStats() {
+        const stats = {
+            total: this.logHistory.length,
+            byLevel: {},
+            byCategory: {},
+            recent: this.logHistory.slice(-10)
+        };
+
+        // 按級別統計
+        this.logHistory.forEach(entry => {
+            stats.byLevel[entry.level] = (stats.byLevel[entry.level] || 0) + 1;
+        });
+
+        // 按分類統計
+        this.logHistory.forEach(entry => {
+            stats.byCategory[entry.category] = (stats.byCategory[entry.category] || 0) + 1;
+        });
+
+        return stats;
+    }
 }
 
 module.exports = { Logger };

@@ -55,6 +55,32 @@ function runTests() {
             const groupBindings = new Map();
             const studentToConditionsMap = new Map();
 
+            // 定義一個簡單的搜索函數
+            const searchFunction = async (students, seats, conditions, studentScores, groupBindings, studentToConditionsMap) => {
+                // 簡單的貪婪算法：按分數排序學生，然後分配座位
+                const sortedStudents = students.sort((a, b) => (studentScores[b.id] || 0) - (studentScores[a.id] || 0));
+                const assignment = new Map();
+                let score = 0;
+
+                for (const student of sortedStudents) {
+                    const availableSeats = seats.filter(seat => 
+                        !Array.from(assignment.values()).some(assignedSeat => assignedSeat.id === seat.id)
+                    );
+                    
+                    if (availableSeats.length > 0) {
+                        const selectedSeat = availableSeats[0];
+                        assignment.set(student.id, selectedSeat);
+                        score += studentScores[student.id] || 0;
+                    }
+                }
+
+                return {
+                    success: true,
+                    assignment: assignment,
+                    score: score
+                };
+            };
+
             console.log('開始執行並行搜索...');
             const result = await engine.parallelSearch(
                 testStudents,
@@ -67,7 +93,8 @@ function runTests() {
                     maxWorkers: 2,
                     timeout: 5000,
                     enableProgressCallback: false
-                }
+                },
+                searchFunction
             );
 
             console.log('並行搜索結果:', result);

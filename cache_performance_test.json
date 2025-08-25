@@ -1,0 +1,53 @@
+{
+  "timestamp": "2025-08-25T15:35:27.329Z",
+  "nodeVersion": "v22.16.0",
+  "platform": "win32",
+  "results": [
+    {
+      "testName": "第一次執行 (無緩存)",
+      "executionTime": 8.5108,
+      "memoryUsed": 417056,
+      "success": true,
+      "assignmentCount": 100,
+      "cacheHitRate": 0
+    },
+    {
+      "testName": "第二次執行 (有緩存)",
+      "executionTime": 5.6655,
+      "memoryUsed": -521880,
+      "success": true,
+      "assignmentCount": 100,
+      "cacheHitRate": 0
+    },
+    {
+      "testName": "第三次執行 (更多緩存)",
+      "executionTime": 4.5703,
+      "memoryUsed": 888344,
+      "success": true,
+      "assignmentCount": 100,
+      "cacheHitRate": 0
+    },
+    {
+      "testName": "部分數據變化 (部分緩存)",
+      "executionTime": 3.435,
+      "memoryUsed": -348112,
+      "success": true,
+      "assignmentCount": 100,
+      "cacheHitRate": 0
+    },
+    {
+      "testName": "條件變化 (部分緩存)",
+      "executionTime": 6.2156,
+      "memoryUsed": -129592,
+      "success": true,
+      "assignmentCount": 100,
+      "cacheHitRate": 0
+    }
+  ],
+  "analysis": {
+    "speedImprovement1": 33.43163979884382,
+    "speedImprovement2": 46.2999953000893,
+    "secondExecutionCacheHitRate": 0,
+    "thirdExecutionCacheHitRate": 0
+  }
+}

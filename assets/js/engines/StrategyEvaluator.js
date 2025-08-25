@@ -445,7 +445,7 @@ class StrategyEvaluator {
 
 // 導出模組
 if (typeof module !== 'undefined' && module.exports) {
-	module.exports = StrategyEvaluator;
+	module.exports = { StrategyEvaluator };
 } else if (typeof window !== 'undefined') {
 	window.StrategyEvaluator = StrategyEvaluator;
 }
