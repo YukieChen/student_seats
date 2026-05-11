@@ -394,3 +394,130 @@ function checkPreAssignmentConditions() {
 	}
 	return inconsistencies;
 }
+
+function assignmentSeatElement(row, col) {
+	return document.querySelector(`#main-grid-area .seat[data-row="${row}"][data-col="${col}"]`);
+}
+
+function assignmentSetSwapHighlight(row, col, on) {
+	const el = assignmentSeatElement(row, col);
+	if (el) el.classList.toggle('seat-swap-pending', !!on);
+}
+
+function assignmentSetSwapSecondHighlight(row, col, on) {
+	const el = assignmentSeatElement(row, col);
+	if (el) el.classList.toggle('seat-swap-pending-second', !!on);
+}
+
+/** 清除主網格上交換用高亮（例如重新排位前） */
+export function clearAssignmentSwapDomHighlights() {
+	document.querySelectorAll('#main-grid-area .seat.seat-swap-pending').forEach(el => el.classList.remove('seat-swap-pending'));
+	document.querySelectorAll('#main-grid-area .seat.seat-swap-pending-second').forEach(el => el.classList.remove('seat-swap-pending-second'));
+}
+
+let assignmentSwapEscHandler = null;
+
+export function unbindAssignmentSwapEscListener() {
+	if (assignmentSwapEscHandler) {
+		document.removeEventListener('keydown', assignmentSwapEscHandler);
+		assignmentSwapEscHandler = null;
+	}
+}
+
+export function bindAssignmentSwapEscListener() {
+	unbindAssignmentSwapEscListener();
+	assignmentSwapEscHandler = (ev) => {
+		if (ev.key !== 'Escape') return;
+		const bd = document.getElementById('swap-seat-modal-backdrop');
+		if (bd && bd.style.display === 'flex') {
+			ev.preventDefault();
+			handleSwapSeatModalNo();
+			return;
+		}
+		if (appState.pendingSwapFirst) {
+			ev.preventDefault();
+			const p = appState.pendingSwapFirst;
+			appState.pendingSwapFirst = null;
+			assignmentSetSwapHighlight(p.row, p.col, false);
+		}
+	};
+	document.addEventListener('keydown', assignmentSwapEscHandler);
+}
+
+/** 座位安排結果畫面：點兩位已分配學生以交換座位（第一次選取、第二次確認） */
+export function handleAssignmentSeatClick(event) {
+	const t = event.target.closest('.seat');
+	if (!t) return;
+	const row = parseInt(t.dataset.row, 10);
+	const col = parseInt(t.dataset.col, 10);
+	if (Number.isNaN(row) || Number.isNaN(col)) return;
+	const seat = appState.seats[row][col];
+	if (!seat.studentId) return;
+
+	const first = appState.pendingSwapFirst;
+	if (first && first.row === row && first.col === col) {
+		appState.pendingSwapFirst = null;
+		assignmentSetSwapHighlight(row, col, false);
+		return;
+	}
+	if (!first) {
+		appState.pendingSwapFirst = { row, col, studentId: seat.studentId };
+		assignmentSetSwapHighlight(row, col, true);
+		return;
+	}
+
+	const backdrop = document.getElementById('swap-seat-modal-backdrop');
+	if (!backdrop) return;
+	backdrop.dataset.r1 = String(first.row);
+	backdrop.dataset.c1 = String(first.col);
+	backdrop.dataset.r2 = String(row);
+	backdrop.dataset.c2 = String(col);
+	assignmentSetSwapSecondHighlight(row, col, true);
+	backdrop.style.display = 'flex';
+}
+
+export function handleSwapSeatModalNo() {
+	const backdrop = document.getElementById('swap-seat-modal-backdrop');
+	if (backdrop) {
+		const r2 = parseInt(backdrop.dataset.r2, 10);
+		const c2 = parseInt(backdrop.dataset.c2, 10);
+		if (!Number.isNaN(r2) && !Number.isNaN(c2)) {
+			assignmentSetSwapSecondHighlight(r2, c2, false);
+		}
+		backdrop.style.display = 'none';
+	}
+	const first = appState.pendingSwapFirst;
+	if (first) {
+		assignmentSetSwapHighlight(first.row, first.col, false);
+		appState.pendingSwapFirst = null;
+	}
+}
+
+export function handleSwapSeatModalYes() {
+	const backdrop = document.getElementById('swap-seat-modal-backdrop');
+	if (!backdrop) return;
+	const r1 = parseInt(backdrop.dataset.r1, 10);
+	const c1 = parseInt(backdrop.dataset.c1, 10);
+	const r2 = parseInt(backdrop.dataset.r2, 10);
+	const c2 = parseInt(backdrop.dataset.c2, 10);
+	backdrop.style.display = 'none';
+
+	const seat1 = appState.seats[r1]?.[c1];
+	const seat2 = appState.seats[r2]?.[c2];
+	if (!seat1 || !seat2 || seat1.studentId == null || seat2.studentId == null) {
+		assignmentSetSwapHighlight(r1, c1, false);
+		assignmentSetSwapSecondHighlight(r2, c2, false);
+		appState.pendingSwapFirst = null;
+		return;
+	}
+	const id1 = seat1.studentId;
+	const id2 = seat2.studentId;
+	seat1.studentId = id2;
+	seat2.studentId = id1;
+	if (appState.lastAssignedSeats && typeof appState.lastAssignedSeats === 'object') {
+		appState.lastAssignedSeats[id2] = { row: r1, col: c1 };
+		appState.lastAssignedSeats[id1] = { row: r2, col: c2 };
+	}
+	appState.pendingSwapFirst = null;
+	renderScreen('assignment');
+}

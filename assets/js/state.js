@@ -11,7 +11,9 @@ export let appState = {
 	studentCount: 0,             // 學生人數，由使用者設定
 	studentIds: [],              // 學生座號列表，例如: [1, 3, 4, ..., 36]
 	selectedValidSeatsCount: 0,   // 已選取的有效座位數量
-	lastAssignedSeats: {} // 新增：儲存上一次的座位分配結果 { studentId: {row, col} }
+	lastAssignedSeats: {}, // 新增：儲存上一次的座位分配結果 { studentId: {row, col} }
+	/** 座位表手動交換：已選定的第一個有學生的座位 { row, col, studentId }，否則 null */
+	pendingSwapFirst: null
 };
 
 // Seat 對象結構 (每個網格單元)
@@ -47,6 +49,7 @@ export function initializeAppState() {
 	appState.studentIds = [];
 	appState.selectedValidSeatsCount = 0;
 	appState.lastAssignedSeats = {}; // 初始化 lastAssignedSeats
+	appState.pendingSwapFirst = null;
 }
 
 // 初始化座位網格數據 (在設定學生人數後呼叫)

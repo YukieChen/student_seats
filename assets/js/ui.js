@@ -1,7 +1,7 @@
 // ui.js - 介面渲染相關函數
 
 import { appState, initializeSeats } from './state.js';
-import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition, handleAddStudentGroup, handleDeleteStudentGroup, handleAssignStudentGroupToSeatGroup, handleGroupSelectChange } from './handlers.js';
+import { handleSeatConfigClick, handleGroupingSetupClick, handleAddGroup, handleAssignSelectedSeatsToGroup, handleClearTempSelection, handleDeleteGroup, handleConditionTypeChange, handleAddCondition, handleDeleteCondition, handleAddStudentGroup, handleDeleteStudentGroup, handleAssignStudentGroupToSeatGroup, handleGroupSelectChange, handleAssignmentSeatClick, handleSwapSeatModalNo, handleSwapSeatModalYes, bindAssignmentSwapEscListener, unbindAssignmentSwapEscListener, clearAssignmentSwapDomHighlights } from './handlers.js';
 import { downloadConfig, uploadConfig } from './utils.js';
 import { startAssignment } from './algorithms.js';
 
@@ -52,6 +52,7 @@ function parseStudentIdsString(studentIdsString) {
 
 // 渲染畫面
 export function renderScreen(screenName) {
+	unbindAssignmentSwapEscListener();
 	appState.currentScreen = screenName;
 
 	const initialSetupScreen = document.getElementById('initial-setup-screen');
@@ -528,6 +529,16 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
 	});
 	seatGridHtml += `
         </div>
+        <div id="swap-seat-modal-backdrop" class="swap-seat-modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="swap-seat-modal-title">
+            <div class="swap-seat-modal-dialog">
+                <p id="swap-seat-modal-title">是否要將兩人座位交換？</p>
+                <div class="swap-seat-modal-actions">
+                    <button type="button" class="button" id="swap-seat-yes">是</button>
+                    <button type="button" class="button" id="swap-seat-no">否</button>
+                </div>
+            </div>
+        </div>
+        <p class="swap-seat-hint">提示：先點選一位同學（橘框），再點另一位（青框）可交換座位；對話框開啟時按 Esc 等同按「否」；僅選好第一位時按 Esc 可取消選取。</p>
         <button class="button" id="start-assignment-button">開始安排</button>
         <button class="button" id="download-config-button-assignment">下載設定</button>
     `;
@@ -604,10 +615,35 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
 		unassignedListElement.innerHTML = ''; // 如果沒有未安排學生，則清空列表
 	}
 
+	document.querySelectorAll('#main-grid-area .seat').forEach(seatElement => {
+		seatElement.addEventListener('click', handleAssignmentSeatClick);
+	});
+	if (appState.pendingSwapFirst) {
+		const { row, col } = appState.pendingSwapFirst;
+		const el = document.querySelector(`#main-grid-area .seat[data-row="${row}"][data-col="${col}"]`);
+		if (el) el.classList.add('seat-swap-pending');
+	}
+
+	const swapBackdrop = document.getElementById('swap-seat-modal-backdrop');
+	if (swapBackdrop) {
+		const swapDialog = swapBackdrop.querySelector('.swap-seat-modal-dialog');
+		if (swapDialog) swapDialog.addEventListener('click', e => e.stopPropagation());
+		document.getElementById('swap-seat-yes').addEventListener('click', handleSwapSeatModalYes);
+		document.getElementById('swap-seat-no').addEventListener('click', handleSwapSeatModalNo);
+		swapBackdrop.addEventListener('click', (e) => {
+			if (e.target === swapBackdrop) handleSwapSeatModalNo();
+		});
+	}
+
 	// 添加事件監聽器
 	document.getElementById('start-assignment-button').addEventListener('click', async () => {
 		const startButton = document.getElementById('start-assignment-button');
 		const unassignedListElement = document.getElementById('unassigned-students-list');
+
+		appState.pendingSwapFirst = null;
+		const openBackdrop = document.getElementById('swap-seat-modal-backdrop');
+		if (openBackdrop) openBackdrop.style.display = 'none';
+		clearAssignmentSwapDomHighlights();
 
 		startButton.disabled = true; // 禁用按鈕
 		startButton.textContent = '安排中...'; // 顯示載入訊息
@@ -618,13 +654,20 @@ function renderAssignmentScreen(mainGridArea, leftPanel, rightPanel) {
 		startButton.textContent = '開始安排'; // 恢復按鈕文字
 	});
 	document.getElementById('download-config-button-assignment').addEventListener('click', downloadConfig); // 新增下載按鈕事件
-	document.getElementById('back-to-grouping-button').addEventListener('click', () => renderScreen('groupingSetup'));
+	document.getElementById('back-to-grouping-button').addEventListener('click', () => {
+		appState.pendingSwapFirst = null;
+		const bd = document.getElementById('swap-seat-modal-backdrop');
+		if (bd) bd.style.display = 'none';
+		clearAssignmentSwapDomHighlights();
+		renderScreen('groupingSetup');
+	});
 	document.getElementById('condition-type').addEventListener('change', handleConditionTypeChange);
 	document.getElementById('add-condition-button').addEventListener('click', handleAddCondition);
 	document.querySelectorAll('#condition-list .delete').forEach(button => {
 		button.addEventListener('click', handleDeleteCondition);
 	});
 	updateControlPanel(); // 更新條件相關的動態內容
+	bindAssignmentSwapEscListener();
 }
 
 // 輔助函式：更新控制面板的動態內容 (主要用於條件和群組選擇器)
